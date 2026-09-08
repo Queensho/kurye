@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'create_shipment_page.dart';
 
 class HomePixelPreview extends StatelessWidget {
   const HomePixelPreview({super.key});
@@ -6,6 +7,12 @@ class HomePixelPreview extends StatelessWidget {
   static const blue = Color(0xFF178EF4);
   static const deepBlue = Color(0xFF0E3E8E);
   static const muted = Color(0xFF7A8390);
+
+  void _openCreateShipment(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CreateShipmentPage()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,12 +26,12 @@ class HomePixelPreview extends StatelessWidget {
         final fs = sx * (0.94 + 0.06 * vy);
 
         return Column(children: [
-          _hero(sx, y, fs),
+          _hero(context, sx, y, fs),
           Transform.translate(
             offset: Offset(0, -7 * y),
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 10 * sx),
-              child: _vehicles(sx, y, fs),
+              child: _vehicles(context, sx, y, fs),
             ),
           ),
           Transform.translate(
@@ -49,7 +56,7 @@ class HomePixelPreview extends StatelessWidget {
     );
   }
 
-  Widget _hero(double sx, double y, double fs) => SizedBox(
+  Widget _hero(BuildContext context, double sx, double y, double fs) => SizedBox(
         height: 300 * y,
         width: double.infinity,
         child: DecoratedBox(
@@ -113,44 +120,55 @@ class HomePixelPreview extends StatelessWidget {
               left: 18 * sx,
               right: 18 * sx,
               bottom: 16 * y,
-              child: Container(
-                height: 48 * y,
-                padding: EdgeInsets.symmetric(horizontal: 10 * sx),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(26 * sx), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 15, offset: Offset(0, 5))]),
-                child: Row(children: [
-                  Container(width: 36 * sx, height: 36 * sx, decoration: const BoxDecoration(color: blue, shape: BoxShape.circle), child: Icon(Icons.add_rounded, size: 25 * fs, color: Colors.white)),
-                  SizedBox(width: 10 * sx),
-                  Expanded(child: Text('Gönderi Oluştur', style: TextStyle(fontSize: 16 * fs, fontWeight: FontWeight.w800, color: deepBlue))),
-                  Icon(Icons.chevron_right_rounded, size: 25 * fs, color: blue),
-                ]),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _openCreateShipment(context),
+                  borderRadius: BorderRadius.circular(26 * sx),
+                  child: Container(
+                    height: 48 * y,
+                    padding: EdgeInsets.symmetric(horizontal: 10 * sx),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(26 * sx), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 15, offset: Offset(0, 5))]),
+                    child: Row(children: [
+                      Container(width: 36 * sx, height: 36 * sx, decoration: const BoxDecoration(color: blue, shape: BoxShape.circle), child: Icon(Icons.add_rounded, size: 25 * fs, color: Colors.white)),
+                      SizedBox(width: 10 * sx),
+                      Expanded(child: Text('Gönderi Oluştur', style: TextStyle(fontSize: 16 * fs, fontWeight: FontWeight.w800, color: deepBlue))),
+                      Icon(Icons.chevron_right_rounded, size: 25 * fs, color: blue),
+                    ]),
+                  ),
+                ),
               ),
             ),
           ]),
         ),
       );
 
-  Widget _vehicles(double sx, double y, double fs) => Container(
+  Widget _vehicles(BuildContext context, double sx, double y, double fs) => Container(
         height: 154 * y,
         padding: EdgeInsets.all(7 * sx),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(23 * sx), boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 12, offset: Offset(0, 4))]),
         child: Row(children: [
-          Expanded(child: _vehicle(sx, y, fs, 'Araç', 'Daha büyük gönderiler\niçin ideal', 'assets/images/arac_hd.png')),
+          Expanded(child: _vehicle(context, sx, y, fs, 'Araç', 'Daha büyük gönderiler\niçin ideal', 'assets/images/arac_hd.png')),
           SizedBox(width: 7 * sx),
-          Expanded(child: _vehicle(sx, y, fs, 'Motosiklet', 'Hızlı ve pratik\nteslimat', 'assets/images/motosiklet_hd.png')),
+          Expanded(child: _vehicle(context, sx, y, fs, 'Motosiklet', 'Hızlı ve pratik\nteslimat', 'assets/images/motosiklet_hd.png')),
         ]),
       );
 
-  Widget _vehicle(double sx, double y, double fs, String title, String subtitle, String asset) => Container(
-        padding: EdgeInsets.fromLTRB(9 * sx, 4 * y, 8 * sx, 8 * y),
-        decoration: BoxDecoration(gradient: const LinearGradient(colors: [Colors.white, Color(0xFFF0F9FF)]), borderRadius: BorderRadius.circular(19 * sx)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Center(child: Image.asset(asset, fit: BoxFit.contain, filterQuality: FilterQuality.high))),
-          Text(title, style: TextStyle(fontSize: 15 * fs, fontWeight: FontWeight.w900, color: const Color(0xFF11182A))),
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Expanded(child: Text(subtitle, style: TextStyle(fontSize: 9.5 * fs, height: 1.25, color: muted))),
-            Container(width: 28 * sx, height: 28 * sx, decoration: const BoxDecoration(color: Color(0xFFDDF3FF), shape: BoxShape.circle), child: Icon(Icons.chevron_right_rounded, color: blue, size: 21 * fs)),
+  Widget _vehicle(BuildContext context, double sx, double y, double fs, String title, String subtitle, String asset) => InkWell(
+        onTap: () => _openCreateShipment(context),
+        borderRadius: BorderRadius.circular(19 * sx),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(9 * sx, 4 * y, 8 * sx, 8 * y),
+          decoration: BoxDecoration(gradient: const LinearGradient(colors: [Colors.white, Color(0xFFF0F9FF)]), borderRadius: BorderRadius.circular(19 * sx)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: Center(child: Image.asset(asset, fit: BoxFit.contain, filterQuality: FilterQuality.high))),
+            Text(title, style: TextStyle(fontSize: 15 * fs, fontWeight: FontWeight.w900, color: const Color(0xFF11182A))),
+            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Expanded(child: Text(subtitle, style: TextStyle(fontSize: 9.5 * fs, height: 1.25, color: muted))),
+              Container(width: 28 * sx, height: 28 * sx, decoration: const BoxDecoration(color: Color(0xFFDDF3FF), shape: BoxShape.circle), child: Icon(Icons.chevron_right_rounded, color: blue, size: 21 * fs)),
+            ]),
           ]),
-        ]),
+        ),
       );
 
   Widget _promo(double sx, double y) => ClipRRect(
