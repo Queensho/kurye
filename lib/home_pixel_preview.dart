@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'create_shipment_page.dart';
+import 'create_shipment_page_v2.dart';
 
 class HomePixelPreview extends StatelessWidget {
   const HomePixelPreview({super.key});
