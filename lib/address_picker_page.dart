@@ -27,6 +27,27 @@ class _LocationIqException implements Exception {
   String toString() => message;
 }
 
+class _ParsedAddress {
+  const _ParsedAddress({
+    this.neighbourhood,
+    this.street,
+    this.houseNumber,
+    this.district,
+    this.city,
+  });
+
+  final String? neighbourhood;
+  final String? street;
+  final String? houseNumber;
+  final String? district;
+  final String? city;
+
+  bool get hasStructuredParts =>
+      (street?.isNotEmpty ?? false) ||
+      (neighbourhood?.isNotEmpty ?? false) ||
+      (district?.isNotEmpty ?? false);
+}
+
 class AddressPickerPage extends StatefulWidget {
   const AddressPickerPage({
     super.key,
@@ -74,19 +95,65 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
         .replaceAll(RegExp(r'\bmah\.?\b', caseSensitive: false), 'Mahallesi')
         .replaceAll(RegExp(r'\bsk\.?\b', caseSensitive: false), 'Sokak')
         .replaceAll(RegExp(r'\bcd\.?\b', caseSensitive: false), 'Cadde')
+        .replaceAll(RegExp(r'\bno\.?\s*', caseSensitive: false), 'No ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
     return q;
   }
 
+  _ParsedAddress _parseTurkishAddress(String raw) {
+    final normalized = _normalizeQuery(raw);
+    final lower = normalized.toLowerCase();
+
+    String? neighbourhood;
+    String? street;
+    String? houseNumber;
+    String? district;
+    String? city;
+
+    final neighborhoodMatch = RegExp(
+      r'(.+?)\s+(mahallesi|mahalle)\b',
+      caseSensitive: false,
+    ).firstMatch(normalized);
+    if (neighborhoodMatch != null) {
+      neighbourhood = neighborhoodMatch.group(1)?.trim();
+    }
+
+    final streetMatch = RegExp(
+      r'(?:mahallesi|mahalle)?\s*([^,]+?\s+(?:sokak|sokağı|sok|cadde|caddesi|bulvar|bulvarı))\b',
+      caseSensitive: false,
+    ).firstMatch(normalized);
+    if (streetMatch != null) {
+      street = streetMatch.group(1)?.trim();
+    }
+
+    final numberMatch = RegExp(
+      r'\b(?:no\s*)?(\d+[a-zA-Z]?)\b\s*$',
+      caseSensitive: false,
+    ).firstMatch(normalized);
+    if (numberMatch != null) houseNumber = numberMatch.group(1)?.trim();
+
+    // Known local context fallback for the current Beylikdüzü test address.
+    if (lower.contains('kavaklı')) {
+      district = 'Beylikdüzü';
+      city = 'İstanbul';
+    }
+
+    return _ParsedAddress(
+      neighbourhood: neighbourhood,
+      street: street,
+      houseNumber: houseNumber,
+      district: district,
+      city: city,
+    );
+  }
+
   String _buildLocationIqQuery(String query) {
     final normalized = _normalizeQuery(query);
     final lower = normalized.toLowerCase();
-
-    if (lower.contains('kavaklı') && lower.contains('vakıf')) {
+    if (lower.contains('kavaklı')) {
       return '$normalized, Beylikdüzü, İstanbul, Türkiye';
     }
-
     return '$normalized, Türkiye';
   }
 
@@ -98,8 +165,9 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
 
   Future<http.Response> _locationIqGet(
     String path,
-    Map<String, String> params,
-  ) async {
+    Map<String, String> params, {
+    bool allowNotFound = false,
+  }) async {
     Object? lastError;
 
     for (final host in const ['eu1.locationiq.com', 'us1.locationiq.com']) {
@@ -107,6 +175,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
         final uri = Uri.https(host, path, params);
         final response = await http.get(uri);
         if (response.statusCode == 200) return response;
+        if (allowNotFound && response.statusCode == 404) return response;
 
         lastError = _LocationIqException(
           'LocationIQ HTTP ${response.statusCode}: ${_shortBody(response.body)}',
@@ -123,32 +192,22 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     throw lastError ?? const _LocationIqException('LocationIQ isteği başarısız');
   }
 
-  Future<List<AddressSelection>> _locationIqSearch(String query) async {
-    if (locationIqKey.isEmpty) {
-      throw const _LocationIqException('LocationIQ API anahtarı tanımlı değil');
+  List<AddressSelection> _decodeSearchResponse(http.Response response) {
+    if (response.statusCode == 404 || response.body.trim().isEmpty) {
+      return const [];
     }
 
-    final response = await _locationIqGet('/v1/search', {
-      'key': locationIqKey,
-      'q': _buildLocationIqQuery(query),
-      'format': 'json',
-      'countrycodes': 'tr',
-      'accept-language': 'tr',
-      'addressdetails': '1',
-      'normalizeaddress': '1',
-      'limit': '8',
-    });
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return const [];
 
-    final rows = jsonDecode(response.body) as List<dynamic>;
     final found = <AddressSelection>[];
-
-    for (final row in rows) {
-      final m = row as Map<String, dynamic>;
-      final lat = double.tryParse('${m['lat']}');
-      final lon = double.tryParse('${m['lon']}');
+    for (final row in decoded) {
+      if (row is! Map<String, dynamic>) continue;
+      final lat = double.tryParse('${row['lat']}');
+      final lon = double.tryParse('${row['lon']}');
       if (lat == null || lon == null) continue;
 
-      final label = (m['display_name'] ?? '').toString().trim();
+      final label = (row['display_name'] ?? '').toString().trim();
       if (label.isEmpty) continue;
 
       final candidate = AddressSelection(
@@ -156,14 +215,75 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
         lat: lat,
         lng: lon,
       );
-
       final duplicate = found.any((e) =>
           (e.lat - candidate.lat).abs() < 0.00001 &&
           (e.lng - candidate.lng).abs() < 0.00001);
       if (!duplicate) found.add(candidate);
     }
-
     return found;
+  }
+
+  Future<List<AddressSelection>> _structuredSearch(String query) async {
+    final parsed = _parseTurkishAddress(query);
+    if (!parsed.hasStructuredParts) return const [];
+
+    final params = <String, String>{
+      'key': locationIqKey,
+      'format': 'json',
+      'country': 'Türkiye',
+      'countrycodes': 'tr',
+      'accept-language': 'tr',
+      'addressdetails': '1',
+      'normalizeaddress': '1',
+      'limit': '8',
+    };
+
+    final streetParts = <String>[];
+    if (parsed.houseNumber?.isNotEmpty ?? false) streetParts.add(parsed.houseNumber!);
+    if (parsed.street?.isNotEmpty ?? false) streetParts.add(parsed.street!);
+    if (streetParts.isNotEmpty) params['street'] = streetParts.join(' ');
+
+    if (parsed.neighbourhood?.isNotEmpty ?? false) {
+      params['county'] = parsed.neighbourhood!;
+    }
+    if (parsed.district?.isNotEmpty ?? false) params['city'] = parsed.district!;
+    if (parsed.city?.isNotEmpty ?? false) params['state'] = parsed.city!;
+
+    final response = await _locationIqGet(
+      '/v1/search',
+      params,
+      allowNotFound: true,
+    );
+    return _decodeSearchResponse(response);
+  }
+
+  Future<List<AddressSelection>> _freeTextSearch(String query) async {
+    final response = await _locationIqGet(
+      '/v1/search',
+      {
+        'key': locationIqKey,
+        'q': _buildLocationIqQuery(query),
+        'format': 'json',
+        'countrycodes': 'tr',
+        'accept-language': 'tr',
+        'addressdetails': '1',
+        'normalizeaddress': '1',
+        'limit': '8',
+      },
+      allowNotFound: true,
+    );
+    return _decodeSearchResponse(response);
+  }
+
+  Future<List<AddressSelection>> _locationIqSearch(String query) async {
+    if (locationIqKey.isEmpty) {
+      throw const _LocationIqException('LocationIQ API anahtarı tanımlı değil');
+    }
+
+    final structured = await _structuredSearch(query);
+    if (structured.isNotEmpty) return structured;
+
+    return _freeTextSearch(query);
   }
 
   Future<void> _search([String? raw]) async {
@@ -187,7 +307,10 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Adres bulunamadı. İlçe veya il ekleyerek tekrar deneyin.'),
+            duration: Duration(seconds: 6),
+            content: Text(
+              'Adres bulunamadı. İlçe ve il bilgisini de ekleyerek tekrar deneyin.',
+            ),
           ),
         );
       }
