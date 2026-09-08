@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'create_shipment_page_v2.dart';
+import 'my_shipments_page.dart';
 
 class HomePixelPreview extends StatelessWidget {
   const HomePixelPreview({super.key});
@@ -11,6 +12,12 @@ class HomePixelPreview extends StatelessWidget {
   void _openCreateShipment(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const CreateShipmentPage()),
+    );
+  }
+
+  void _openMyShipments(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const MyShipmentsPage()),
     );
   }
 
@@ -44,12 +51,12 @@ class HomePixelPreview extends StatelessWidget {
           SizedBox(height: 7 * y),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 12 * sx),
-            child: _recent(sx, y, fs),
+            child: _recent(context, sx, y, fs),
           ),
           const Spacer(),
           Padding(
             padding: EdgeInsets.fromLTRB(10 * sx, 0, 10 * sx, 8 * y),
-            child: _nav(sx, y, fs),
+            child: _nav(context, sx, y, fs),
           ),
         ]);
       }),
@@ -180,50 +187,70 @@ class HomePixelPreview extends StatelessWidget {
         ),
       );
 
-  Widget _recent(double sx, double y, double fs) => Column(children: [
+  Widget _recent(BuildContext context, double sx, double y, double fs) => Column(children: [
         Row(children: [
           Expanded(child: Text('Son Gönderilerim', style: TextStyle(fontSize: 16 * fs, fontWeight: FontWeight.w900))),
-          Text('Tümünü Gör', style: TextStyle(fontSize: 10 * fs, color: blue, fontWeight: FontWeight.w700)),
-          Icon(Icons.chevron_right_rounded, size: 15 * fs, color: const Color(0xFF8C939B)),
+          InkWell(
+            onTap: () => _openMyShipments(context),
+            borderRadius: BorderRadius.circular(10 * sx),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 5 * sx, vertical: 4 * y),
+              child: Row(children: [
+                Text('Tümünü Gör', style: TextStyle(fontSize: 10 * fs, color: blue, fontWeight: FontWeight.w700)),
+                Icon(Icons.chevron_right_rounded, size: 15 * fs, color: const Color(0xFF8C939B)),
+              ]),
+            ),
+          ),
         ]),
         SizedBox(height: 6 * y),
-        Container(
-          height: 66 * y,
-          padding: EdgeInsets.all(8 * sx),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * sx)),
-          child: Row(children: [
-            CircleAvatar(radius: 24 * sx, backgroundColor: const Color(0xFFF7F4EF), child: Icon(Icons.inventory_2_rounded, size: 27 * fs, color: const Color(0xFFD69A50))),
-            SizedBox(width: 8 * sx),
-            Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('#12458', style: TextStyle(fontSize: 10 * fs, fontWeight: FontWeight.w700)),
-              Text('Şişli → Kadıköy', style: TextStyle(fontSize: 12 * fs, fontWeight: FontWeight.w800)),
-              Text('Teslim edildi', style: TextStyle(fontSize: 9 * fs, color: muted)),
-            ])),
-            Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text('Dün 14:32', style: TextStyle(fontSize: 8 * fs, color: muted)),
-              SizedBox(height: 6 * y),
-              Container(padding: EdgeInsets.symmetric(horizontal: 7 * sx, vertical: 4 * y), decoration: BoxDecoration(color: const Color(0xFFDDF8E4), borderRadius: BorderRadius.circular(12 * sx)), child: Text('✓ Tamamlandı', style: TextStyle(fontSize: 8 * fs, color: const Color(0xFF11843A), fontWeight: FontWeight.w700))),
+        InkWell(
+          onTap: () => _openMyShipments(context),
+          borderRadius: BorderRadius.circular(18 * sx),
+          child: Container(
+            height: 66 * y,
+            padding: EdgeInsets.all(8 * sx),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * sx)),
+            child: Row(children: [
+              CircleAvatar(radius: 24 * sx, backgroundColor: const Color(0xFFF7F4EF), child: Icon(Icons.inventory_2_rounded, size: 27 * fs, color: const Color(0xFFD69A50))),
+              SizedBox(width: 8 * sx),
+              Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('#12458', style: TextStyle(fontSize: 10 * fs, fontWeight: FontWeight.w700)),
+                Text('Şişli → Kadıköy', style: TextStyle(fontSize: 12 * fs, fontWeight: FontWeight.w800)),
+                Text('Teslim edildi', style: TextStyle(fontSize: 9 * fs, color: muted)),
+              ])),
+              Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text('Dün 14:32', style: TextStyle(fontSize: 8 * fs, color: muted)),
+                SizedBox(height: 6 * y),
+                Container(padding: EdgeInsets.symmetric(horizontal: 7 * sx, vertical: 4 * y), decoration: BoxDecoration(color: const Color(0xFFDDF8E4), borderRadius: BorderRadius.circular(12 * sx)), child: Text('✓ Tamamlandı', style: TextStyle(fontSize: 8 * fs, color: const Color(0xFF11843A), fontWeight: FontWeight.w700))),
+              ]),
             ]),
-          ]),
+          ),
         ),
       ]);
 
-  Widget _nav(double sx, double y, double fs) => Container(
+  Widget _nav(BuildContext context, double sx, double y, double fs) => Container(
         height: 60 * y,
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25 * sx), boxShadow: const [BoxShadow(color: Color(0x19000000), blurRadius: 16, offset: Offset(0, 5))]),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-          _navItem(fs, Icons.home_rounded, 'Ana Sayfa', true),
-          _navItem(fs, Icons.receipt_long_rounded, 'Gönderilerim', false),
-          _navItem(fs, Icons.chat_bubble_outline_rounded, 'Mesajlar', false),
-          _navItem(fs, Icons.person_outline_rounded, 'Profilim', false),
+          _navItem(fs, Icons.home_rounded, 'Ana Sayfa', true, () {}),
+          _navItem(fs, Icons.receipt_long_rounded, 'Gönderilerim', false, () => _openMyShipments(context)),
+          _navItem(fs, Icons.chat_bubble_outline_rounded, 'Mesajlar', false, () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mesajlar ekranını sıradaki adımda bağlayacağız.')))),
+          _navItem(fs, Icons.person_outline_rounded, 'Profilim', false, () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil ekranını sıradaki adımda bağlayacağız.')))),
         ]),
       );
 
-  Widget _navItem(double fs, IconData icon, String label, bool active) {
+  Widget _navItem(double fs, IconData icon, String label, bool active, VoidCallback onTap) {
     final color = active ? blue : muted;
-    return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(icon, size: 21 * fs, color: color),
-      Text(label, style: TextStyle(fontSize: 8.5 * fs, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: color)),
-    ]);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 21 * fs, color: color),
+          Text(label, style: TextStyle(fontSize: 8.5 * fs, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: color)),
+        ]),
+      ),
+    );
   }
 }
