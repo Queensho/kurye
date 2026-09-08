@@ -340,7 +340,7 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
     onTap:onTap,
     borderRadius:BorderRadius.circular(15*s),
     child:Container(
-      minHeight:66*s,
+      constraints: BoxConstraints(minHeight:66*s),
       padding:EdgeInsets.symmetric(horizontal:11*s,vertical:8*s),
       decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15*s),border:Border.all(color:value!=null?const Color(0xFFB9DAFF):const Color(0xFFE7ECF3))),
       child:Row(children:[
