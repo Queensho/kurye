@@ -20,6 +20,12 @@ class AddressSelection {
   LatLng get point => LatLng(lat, lng);
 }
 
+class _GeoCandidate {
+  const _GeoCandidate(this.selection, this.address);
+  final AddressSelection selection;
+  final Map<String, dynamic> address;
+}
+
 class AddressPickerPage extends StatefulWidget {
   const AddressPickerPage({
     super.key,
@@ -52,9 +58,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
   void initState() {
     super.initState();
     selected = widget.initial;
-    if (widget.initial != null) {
-      controller.text = widget.initial!.displayName;
-    }
+    if (widget.initial != null) controller.text = widget.initial!.displayName;
   }
 
   @override
@@ -71,68 +75,146 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
       setState(() => results = []);
       return;
     }
-    debounce = Timer(const Duration(milliseconds: 550), () => _search(q));
+    debounce = Timer(const Duration(milliseconds: 650), () => _search(q));
   }
 
   bool _looksLikeFullAddress(String query) {
-    return RegExp(r'\d').hasMatch(query) &&
-        (query.toLowerCase().contains('sokak') ||
-            query.toLowerCase().contains('sk') ||
-            query.toLowerCase().contains('cadde') ||
-            query.toLowerCase().contains('cd') ||
-            query.toLowerCase().contains('bulvar') ||
-            query.toLowerCase().contains('mahall'));
+    final q = query.toLowerCase();
+    return RegExp(r'\d').hasMatch(q) &&
+        (q.contains('sokak') || q.contains(' sk') || q.contains('cadde') ||
+            q.contains(' cd') || q.contains('bulvar') || q.contains('mahall'));
   }
 
   String _normalizeQuery(String query) {
     return query
         .replaceAll(RegExp(r'\bno\.?\s*', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'\bmahallesi\b', caseSensitive: false), ' mahalle ')
+        .replaceAll(RegExp(r'\bmah\.?\b', caseSensitive: false), ' mahalle ')
+        .replaceAll(RegExp(r'\bsk\.?\b', caseSensitive: false), ' sokak ')
+        .replaceAll(RegExp(r'\bcd\.?\b', caseSensitive: false), ' cadde ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
 
-  Future<List<AddressSelection>> _fetchAddresses(String query) async {
-    final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+  String _withoutHouseNumber(String query) {
+    var q = query.replaceAll(RegExp(r'\bno\.?\s*\d+[a-zA-Z]?\b', caseSensitive: false), ' ');
+    q = q.replaceAll(RegExp(r'\s+\d+[a-zA-Z]?\s*\$', caseSensitive: false), ' ');
+    return q.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  String? _houseNumber(String query) {
+    final no = RegExp(r'\bno\.?\s*(\d+[a-zA-Z]?)\b', caseSensitive: false).firstMatch(query);
+    if (no != null) return no.group(1);
+    final end = RegExp(r'(\d+[a-zA-Z]?)\s*\$').firstMatch(query.trim());
+    return end?.group(1);
+  }
+
+  Future<List<_GeoCandidate>> _fetchCandidates(String query, {String? viewbox}) async {
+    final params = <String, String>{
       'q': '$query, Türkiye',
       'format': 'jsonv2',
       'addressdetails': '1',
-      'limit': '7',
+      'limit': '10',
       'countrycodes': 'tr',
       'accept-language': 'tr',
-    });
-    final response = await http.get(uri);
-    if (response.statusCode != 200) {
-      throw Exception('Adres servisi yanıt vermedi');
+      'dedupe': '1',
+    };
+    if (viewbox != null) {
+      params['viewbox'] = viewbox;
+      params['bounded'] = '1';
     }
+    final uri = Uri.https('nominatim.openstreetmap.org', '/search', params);
+    final response = await http.get(uri);
+    if (response.statusCode != 200) throw Exception('Adres servisi yanıt vermedi');
     final data = jsonDecode(response.body) as List<dynamic>;
     return data.map((item) {
       final m = item as Map<String, dynamic>;
-      return AddressSelection(
-        displayName: (m['display_name'] ?? '').toString(),
-        lat: double.parse(m['lat'].toString()),
-        lng: double.parse(m['lon'].toString()),
+      final address = (m['address'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+      return _GeoCandidate(
+        AddressSelection(
+          displayName: (m['display_name'] ?? '').toString(),
+          lat: double.parse(m['lat'].toString()),
+          lng: double.parse(m['lon'].toString()),
+        ),
+        address,
       );
-    }).where((e) => e.displayName.isNotEmpty).toList();
+    }).where((e) => e.selection.displayName.isNotEmpty).toList();
+  }
+
+  double _scoreCandidate(_GeoCandidate c, String query) {
+    final q = _normalizeQuery(query).toLowerCase();
+    final name = c.selection.displayName.toLowerCase();
+    var score = 0.0;
+    final tokens = q.split(' ').where((e) => e.length >= 3 && !RegExp(r'^\d+\$').hasMatch(e));
+    for (final token in tokens) {
+      if (name.contains(token)) score += 1;
+    }
+    final wantedNo = _houseNumber(query);
+    final foundNo = (c.address['house_number'] ?? '').toString().toLowerCase();
+    if (wantedNo != null && foundNo == wantedNo.toLowerCase()) score += 8;
+    if ((c.address['road'] ?? '').toString().isNotEmpty) score += 2;
+    if ((c.address['suburb'] ?? c.address['neighbourhood'] ?? c.address['quarter'] ?? '').toString().isNotEmpty) score += 1;
+    return score;
+  }
+
+  String _contextSuffix(Map<String, dynamic> address) {
+    final parts = <String>[];
+    for (final key in ['suburb', 'town', 'county', 'city', 'province']) {
+      final value = (address[key] ?? '').toString().trim();
+      if (value.isNotEmpty && !parts.contains(value)) parts.add(value);
+    }
+    return parts.join(', ');
+  }
+
+  String _viewboxAround(AddressSelection point) {
+    const d = 0.08;
+    return '${point.lng - d},${point.lat + d},${point.lng + d},${point.lat - d}';
+  }
+
+  Future<List<_GeoCandidate>> _smartCandidates(String query) async {
+    final normalized = _normalizeQuery(query);
+    final all = <_GeoCandidate>[];
+
+    Future<void> add(String q, {String? viewbox}) async {
+      if (q.trim().isEmpty) return;
+      final fetched = await _fetchCandidates(q, viewbox: viewbox);
+      for (final item in fetched) {
+        if (!all.any((e) =>
+            (e.selection.lat - item.selection.lat).abs() < 0.00001 &&
+            (e.selection.lng - item.selection.lng).abs() < 0.00001)) {
+          all.add(item);
+        }
+      }
+    }
+
+    await add(query);
+    if (normalized != query) await add(normalized);
+
+    if (_looksLikeFullAddress(query)) {
+      final contextQuery = _withoutHouseNumber(normalized);
+      final contexts = await _fetchCandidates(contextQuery);
+      for (final context in contexts.take(3)) {
+        final suffix = _contextSuffix(context.address);
+        if (suffix.isNotEmpty) {
+          await add('$normalized, $suffix');
+          await add(normalized, viewbox: _viewboxAround(context.selection));
+        }
+      }
+    }
+
+    all.sort((a, b) => _scoreCandidate(b, query).compareTo(_scoreCandidate(a, query)));
+    return all;
   }
 
   Future<void> _search(String query, {bool forceSelect = false}) async {
     if (!mounted) return;
     setState(() => searching = true);
     try {
-      var parsed = await _fetchAddresses(query);
-
-      // Nominatim bazı Türkçe adreslerde "No 41" yerine "41" biçimini daha iyi buluyor.
-      if (parsed.isEmpty) {
-        final normalized = _normalizeQuery(query);
-        if (normalized != query) {
-          parsed = await _fetchAddresses(normalized);
-        }
-      }
-
+      final candidates = await _smartCandidates(query);
       if (!mounted) return;
+      final parsed = candidates.map((e) => e.selection).take(7).toList();
       setState(() => results = parsed);
 
-      // Sokak + kapı numarası girildiğinde en iyi eşleşmeyi doğrudan haritada işaretle.
       if (parsed.isNotEmpty && (forceSelect || _looksLikeFullAddress(query))) {
         await _selectResult(parsed.first, keepSearchText: true);
       }
@@ -152,25 +234,22 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
       if (!keepSearchText) controller.text = value.displayName;
       results = [];
     });
-    mapController.move(value.point, 17);
+    mapController.move(value.point, 18);
   }
 
   Future<void> _selectMapPoint(TapPosition _, LatLng point) async {
     setState(() {
       resolving = true;
-      selected = AddressSelection(
-        displayName: 'Konum belirleniyor...',
-        lat: point.latitude,
-        lng: point.longitude,
-      );
+      selected = AddressSelection(displayName: 'Konum belirleniyor...', lat: point.latitude, lng: point.longitude);
     });
-    mapController.move(point, 16);
+    mapController.move(point, 17);
 
     try {
       final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
         'lat': point.latitude.toString(),
         'lon': point.longitude.toString(),
         'format': 'jsonv2',
+        'addressdetails': '1',
         'accept-language': 'tr',
         'zoom': '18',
       });
@@ -186,11 +265,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
       });
     } catch (_) {
       if (!mounted) return;
-      final fallback = AddressSelection(
-        displayName: 'Haritadan seçilen konum',
-        lat: point.latitude,
-        lng: point.longitude,
-      );
+      final fallback = AddressSelection(displayName: 'Haritadan seçilen konum', lat: point.latitude, lng: point.longitude);
       setState(() {
         selected = fallback;
         controller.text = fallback.displayName;
@@ -247,10 +322,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                         : null,
                 filled: true,
                 fillColor: const Color(0xFFF2F7FD),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
               ),
             ),
           ),
@@ -267,12 +339,8 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                   return ListTile(
                     dense: true,
                     leading: const Icon(Icons.location_on_outlined, color: blue),
-                    title: Text(
-                      item.displayName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: navy),
-                    ),
+                    title: Text(item.displayName, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: navy)),
                     onTap: () => _selectResult(item),
                   );
                 },
@@ -287,33 +355,28 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                     initialCenter: initialCenter,
                     initialZoom: selected == null ? 5.2 : 16,
                     minZoom: 4.5,
-                    maxZoom: 18,
+                    maxZoom: 19,
                     onTap: _selectMapPoint,
                   ),
                   children: [
-                    TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.queensho.kurye',
-                    ),
+                    TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.queensho.kurye'),
                     if (selected != null)
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: selected!.point,
-                            width: 56,
-                            height: 56,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 12)],
-                                border: Border.all(color: blue, width: 2),
-                              ),
-                              child: const Icon(Icons.location_on_rounded, color: blue, size: 32),
+                      MarkerLayer(markers: [
+                        Marker(
+                          point: selected!.point,
+                          width: 56,
+                          height: 56,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 12)],
+                              border: Border.all(color: blue, width: 2),
                             ),
+                            child: const Icon(Icons.location_on_rounded, color: blue, size: 32),
                           ),
-                        ],
-                      ),
+                        ),
+                      ]),
                   ],
                 ),
                 Positioned(
@@ -321,18 +384,12 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                   left: 12,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 12)],
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.touch_app_rounded, color: blue, size: 18),
-                        SizedBox(width: 6),
-                        Text('Haritaya dokunarak da seçebilirsin', style: TextStyle(fontSize: 11, color: navy, fontWeight: FontWeight.w700)),
-                      ],
-                    ),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 12)]),
+                    child: const Row(children: [
+                      Icon(Icons.touch_app_rounded, color: blue, size: 18),
+                      SizedBox(width: 6),
+                      Text('Haritaya dokunarak da seçebilirsin', style: TextStyle(fontSize: 11, color: navy, fontWeight: FontWeight.w700)),
+                    ]),
                   ),
                 ),
               ],
@@ -349,29 +406,18 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                   if (selected != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.place_rounded, color: blue, size: 19),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: Text(
-                              selected!.displayName,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12, color: navy, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Icon(Icons.place_rounded, color: blue, size: 19),
+                        const SizedBox(width: 7),
+                        Expanded(child: Text(selected!.displayName, maxLines: 2, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, color: navy, fontWeight: FontWeight.w700))),
+                      ]),
                     ),
                   SizedBox(
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
-                      onPressed: selected == null || resolving
-                          ? null
-                          : () => Navigator.of(context).pop(selected),
+                      onPressed: selected == null || resolving ? null : () => Navigator.of(context).pop(selected),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: blue,
                         foregroundColor: Colors.white,
@@ -379,10 +425,8 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                         elevation: 0,
                       ),
-                      child: Text(
-                        resolving ? 'Konum belirleniyor...' : 'Bu adresi kullan',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                      ),
+                      child: Text(resolving ? 'Konum belirleniyor...' : 'Bu adresi kullan',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                     ),
                   ),
                 ],
