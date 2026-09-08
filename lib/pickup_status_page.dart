@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'courier_found_page_v2.dart' show CourierChatPage;
+
 class PickupStatusPage extends StatefulWidget {
   const PickupStatusPage({super.key});
 
@@ -34,6 +36,39 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  void _callCourier() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Emre K. aranıyor'),
+        content: const Text(
+          'Kurye ile telefon görüşmesi başlatılacak.\n\nTest numarası: +90 555 123 45 67',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Arama başlatıldı')),
+              );
+            },
+            child: const Text('Ara'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CourierChatPage()),
+    );
   }
 
   @override
@@ -170,7 +205,9 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
           Container(width: 54 * s, height: 54 * s, decoration: const BoxDecoration(color: Color(0xFFEAF4FF), shape: BoxShape.circle), child: Icon(Icons.person_rounded, color: blue, size: 31 * s)),
           SizedBox(width: 10 * s),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Emre K.', style: TextStyle(fontSize: 17 * s, color: navy, fontWeight: FontWeight.w900)), Text('Honda PCX • 34 KYA 728', style: TextStyle(fontSize: 10.5 * s, color: muted))])),
-          _smallAction(s, Icons.phone_rounded, green), SizedBox(width: 7 * s), _smallAction(s, Icons.chat_bubble_rounded, blue),
+          _smallAction(s, Icons.phone_rounded, green, _callCourier),
+          SizedBox(width: 7 * s),
+          _smallAction(s, Icons.chat_bubble_rounded, blue, _openChat),
         ]),
       );
 
@@ -187,5 +224,14 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
 
   Widget _round(double s, IconData icon, VoidCallback onTap) => InkWell(onTap: onTap, borderRadius: BorderRadius.circular(18 * s), child: Container(width: 44 * s, height: 44 * s, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(17 * s), boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 12)]), child: Icon(icon, color: const Color(0xFF173C84), size: 24 * s)));
   Widget _pill(double s, IconData icon, String label) => Container(padding: EdgeInsets.symmetric(horizontal: 12 * s, vertical: 9 * s), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * s)), child: Row(children: [Icon(icon, color: const Color(0xFF173C84), size: 17 * s), SizedBox(width: 5 * s), Text(label, style: TextStyle(fontSize: 10.5 * s, color: navy, fontWeight: FontWeight.w700))]));
-  Widget _smallAction(double s, IconData icon, Color color) => Container(width: 40 * s, height: 40 * s, decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(14 * s)), child: Icon(icon, color: color, size: 20 * s));
+  Widget _smallAction(double s, IconData icon, Color color, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14 * s),
+        child: Container(
+          width: 40 * s,
+          height: 40 * s,
+          decoration: BoxDecoration(color: color.withValues(alpha: .12), borderRadius: BorderRadius.circular(14 * s)),
+          child: Icon(icon, color: color, size: 20 * s),
+        ),
+      );
 }
