@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'courier_found_page_v2.dart' show CourierChatPage;
+import 'courier_found_page_v2.dart' show CourierChatPage, ShipmentDetailsPage;
+import 'create_shipment_page_v2.dart';
 
 class PickupStatusPage extends StatefulWidget {
   const PickupStatusPage({super.key});
@@ -22,19 +23,32 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
   static const dropoff = LatLng(41.0640, 29.0182);
 
   bool pickedUp = false;
-  Timer? _timer;
+  bool delivered = false;
+  Timer? _pickupTimer;
+  Timer? _deliveryTimer;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(seconds: 5), () {
-      if (mounted) setState(() => pickedUp = true);
-    });
+    _pickupTimer = Timer(const Duration(seconds: 5), _markPickedUp);
+  }
+
+  void _markPickedUp() {
+    if (!mounted || pickedUp) return;
+    setState(() => pickedUp = true);
+    _deliveryTimer?.cancel();
+    _deliveryTimer = Timer(const Duration(seconds: 8), _markDelivered);
+  }
+
+  void _markDelivered() {
+    if (!mounted || delivered) return;
+    setState(() => delivered = true);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _pickupTimer?.cancel();
+    _deliveryTimer?.cancel();
     super.dispose();
   }
 
@@ -43,20 +57,13 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Emre K. aranıyor'),
-        content: const Text(
-          'Kurye ile telefon görüşmesi başlatılacak.\n\nTest numarası: +90 555 123 45 67',
-        ),
+        content: const Text('Kurye ile telefon görüşmesi başlatılacak.\n\nTest numarası: +90 555 123 45 67'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Vazgeç'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Vazgeç')),
           FilledButton(
             onPressed: () {
               Navigator.pop(dialogContext);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Arama başlatıldı')),
-              );
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Arama başlatıldı')));
             },
             child: const Text('Ara'),
           ),
@@ -66,8 +73,17 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
   }
 
   void _openChat() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CourierChatPage()),
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CourierChatPage()));
+  }
+
+  void _openDetails() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ShipmentDetailsPage()));
+  }
+
+  void _newShipment() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const CreateShipmentPage()),
+      (route) => route.isFirst,
     );
   }
 
@@ -94,6 +110,10 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
                     _courierCard(s),
                     SizedBox(height: 10 * s),
                     _shipmentCard(s),
+                    if (delivered) ...[
+                      SizedBox(height: 12 * s),
+                      _completionActions(s),
+                    ],
                   ]),
                 ),
               ),
@@ -106,26 +126,56 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
 
   Widget _header(BuildContext context, double s) => Container(
         padding: EdgeInsets.fromLTRB(16 * s, 8 * s, 16 * s, 14 * s),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(colors: [Color(0xFFF4FAFF), Color(0xFFEAF5FF)]),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: delivered
+                ? const [Color(0xFFF1FFF8), Color(0xFFE8FBF2)]
+                : const [Color(0xFFF4FAFF), Color(0xFFEAF5FF)],
+          ),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             _round(s, Icons.arrow_back_rounded, () => Navigator.of(context).pop()),
             const Spacer(),
-            _pill(s, Icons.headset_mic_outlined, 'Yardım'),
+            InkWell(onTap: _openDetails, borderRadius: BorderRadius.circular(18 * s), child: _pill(s, Icons.receipt_long_outlined, 'Detaylar')),
           ]),
           SizedBox(height: 14 * s),
           Row(children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(pickedUp ? 'Paket teslim alındı!' : 'Kurye alım noktasında!', style: TextStyle(fontSize: 27 * s, height: 1.05, fontWeight: FontWeight.w900, color: navy)),
-              SizedBox(height: 7 * s),
-              Text(pickedUp ? 'Gönderin teslimat adresine doğru yola çıktı.' : 'Kurye paketi teslim almak için seni bekliyor.', style: TextStyle(fontSize: 15 * s, height: 1.25, fontWeight: FontWeight.w800, color: blue)),
-              SizedBox(height: 7 * s),
-              Text(pickedUp ? 'Canlı olarak takip edebilirsin.' : 'Paket teslim edildiğinde durum otomatik güncellenecek.', style: TextStyle(fontSize: 11 * s, color: muted, height: 1.35)),
-            ])),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  delivered ? 'Teslim Edildi' : pickedUp ? 'Paket teslim alındı!' : 'Kurye alım noktasında!',
+                  style: TextStyle(fontSize: 27 * s, height: 1.05, fontWeight: FontWeight.w900, color: navy),
+                ),
+                SizedBox(height: 7 * s),
+                Text(
+                  delivered
+                      ? 'Gönderin başarıyla teslim edildi.'
+                      : pickedUp
+                          ? 'Gönderin teslimat adresine doğru yola çıktı.'
+                          : 'Kurye paketi teslim almak için seni bekliyor.',
+                  style: TextStyle(fontSize: 15 * s, height: 1.25, fontWeight: FontWeight.w800, color: delivered ? green : blue),
+                ),
+                SizedBox(height: 7 * s),
+                Text(
+                  delivered ? 'Teslimat süresi: 18 dk' : pickedUp ? 'Canlı olarak takip edebilirsin.' : 'Paket teslim edildiğinde durum otomatik güncellenecek.',
+                  style: TextStyle(fontSize: 11 * s, color: muted, height: 1.35),
+                ),
+              ]),
+            ),
             SizedBox(width: 8 * s),
-            Container(width: 105 * s, height: 105 * s, decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 18)]), padding: EdgeInsets.all(10 * s), child: Image.asset('assets/images/kurye_header_hd.png', fit: BoxFit.contain)),
+            Container(
+              width: 105 * s,
+              height: 105 * s,
+              decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 18)]),
+              padding: EdgeInsets.all(10 * s),
+              child: delivered
+                  ? Container(
+                      decoration: BoxDecoration(color: green.withValues(alpha: .12), shape: BoxShape.circle),
+                      child: Icon(Icons.check_rounded, color: green, size: 60 * s),
+                    )
+                  : Image.asset('assets/images/kurye_header_hd.png', fit: BoxFit.contain),
+            ),
           ]),
         ]),
       );
@@ -136,24 +186,29 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
         child: Row(children: [
           _step(s, true, Icons.check_rounded, 'Kurye Bulundu'),
           _line(s, true),
-          _step(s, true, pickedUp ? Icons.check_rounded : Icons.inventory_2_outlined, 'Alımda'),
+          _step(s, true, Icons.check_rounded, 'Alımda'),
           _line(s, pickedUp),
-          _step(s, pickedUp, Icons.local_shipping_outlined, 'Teslimatta'),
-          _line(s, false),
-          _step(s, false, Icons.flag_outlined, 'Teslim Edildi'),
+          _step(s, pickedUp, pickedUp ? Icons.check_rounded : Icons.local_shipping_outlined, 'Teslimatta'),
+          _line(s, delivered),
+          _step(s, delivered, delivered ? Icons.check_rounded : Icons.flag_outlined, 'Teslim Edildi'),
         ]),
       );
 
   Widget _step(double s, bool active, IconData icon, String label) => SizedBox(
         width: 70 * s,
         child: Column(children: [
-          Container(width: 34 * s, height: 34 * s, decoration: BoxDecoration(shape: BoxShape.circle, color: active ? blue : const Color(0xFFE9EEF6)), child: Icon(icon, color: active ? Colors.white : const Color(0xFF8A96AA), size: 18 * s)),
+          Container(
+            width: 34 * s,
+            height: 34 * s,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: active ? (delivered ? green : blue) : const Color(0xFFE9EEF6)),
+            child: Icon(icon, color: active ? Colors.white : const Color(0xFF8A96AA), size: 18 * s),
+          ),
           SizedBox(height: 5 * s),
           Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: TextStyle(fontSize: 8.2 * s, color: active ? navy : muted, fontWeight: FontWeight.w700)),
         ]),
       );
 
-  Widget _line(double s, bool active) => Expanded(child: Container(height: 2 * s, color: active ? blue : const Color(0xFFD7E0EC)));
+  Widget _line(double s, bool active) => Expanded(child: Container(height: 2 * s, color: active ? (delivered ? green : blue) : const Color(0xFFD7E0EC)));
 
   Widget _map(double s) => SizedBox(
         height: 285 * s,
@@ -163,37 +218,85 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
           children: [
             TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.queensho.kurye'),
             if (pickedUp)
-              PolylineLayer(polylines: [Polyline(points: const [pickup, LatLng(41.0660, 28.9980), LatLng(41.0650, 29.0080), dropoff], strokeWidth: 5 * s, color: blue)]),
+              PolylineLayer(polylines: [
+                Polyline(points: const [pickup, LatLng(41.0660, 28.9980), LatLng(41.0650, 29.0080), dropoff], strokeWidth: 5 * s, color: delivered ? green : blue),
+              ]),
             MarkerLayer(markers: [
-              Marker(point: pickup, width: 58 * s, height: 58 * s, child: _pin(s, pickedUp ? green : blue, pickedUp ? Icons.check_rounded : Icons.inventory_2_rounded)),
-              Marker(point: pickedUp ? const LatLng(41.0660, 28.9980) : pickup, width: 68 * s, height: 68 * s, child: Container(decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFB9DAFF), width: 2)), padding: EdgeInsets.all(6 * s), child: Image.asset('assets/images/motosiklet_hd.png', fit: BoxFit.contain))),
-              if (pickedUp) Marker(point: dropoff, width: 58 * s, height: 58 * s, child: _pin(s, green, Icons.location_on_rounded)),
+              Marker(point: pickup, width: 58 * s, height: 58 * s, child: _pin(s, green, Icons.check_rounded)),
+              if (pickedUp && !delivered)
+                Marker(
+                  point: const LatLng(41.0660, 28.9980),
+                  width: 68 * s,
+                  height: 68 * s,
+                  child: Container(
+                    decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFB9DAFF), width: 2)),
+                    padding: EdgeInsets.all(6 * s),
+                    child: Image.asset('assets/images/motosiklet_hd.png', fit: BoxFit.contain),
+                  ),
+                ),
+              if (pickedUp)
+                Marker(point: dropoff, width: 62 * s, height: 62 * s, child: _pin(s, green, delivered ? Icons.check_rounded : Icons.location_on_rounded)),
             ]),
           ],
         ),
       );
 
-  Widget _pin(double s, Color c, IconData icon) => Container(decoration: BoxDecoration(color: c.withValues(alpha: .16), shape: BoxShape.circle), alignment: Alignment.center, child: Container(width: 36 * s, height: 36 * s, decoration: BoxDecoration(color: c, shape: BoxShape.circle), child: Icon(icon, color: Colors.white, size: 20 * s)));
+  Widget _pin(double s, Color c, IconData icon) => Container(
+        decoration: BoxDecoration(color: c.withValues(alpha: .16), shape: BoxShape.circle),
+        alignment: Alignment.center,
+        child: Container(width: 36 * s, height: 36 * s, decoration: BoxDecoration(color: c, shape: BoxShape.circle), child: Icon(icon, color: Colors.white, size: 20 * s)),
+      );
 
   Widget _statusCard(double s) => Container(
         width: double.infinity,
         padding: EdgeInsets.all(14 * s),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(23 * s), boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 18, offset: Offset(0, 6))]),
+        decoration: BoxDecoration(
+          color: delivered ? const Color(0xFFF1FFF8) : Colors.white,
+          borderRadius: BorderRadius.circular(23 * s),
+          border: delivered ? Border.all(color: const Color(0xFFC9F3DF)) : null,
+          boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 18, offset: Offset(0, 6))],
+        ),
         child: Row(children: [
-          Container(width: 54 * s, height: 54 * s, decoration: BoxDecoration(color: (pickedUp ? green : blue).withValues(alpha: .12), shape: BoxShape.circle), child: Icon(pickedUp ? Icons.local_shipping_rounded : Icons.inventory_2_rounded, color: pickedUp ? green : blue, size: 28 * s)),
+          Container(
+            width: 54 * s,
+            height: 54 * s,
+            decoration: BoxDecoration(color: (delivered ? green : pickedUp ? green : blue).withValues(alpha: .12), shape: BoxShape.circle),
+            child: Icon(delivered ? Icons.check_rounded : pickedUp ? Icons.local_shipping_rounded : Icons.inventory_2_rounded, color: delivered || pickedUp ? green : blue, size: 28 * s),
+          ),
           SizedBox(width: 12 * s),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(pickedUp ? 'Teslimata çıkıldı' : 'Kurye paketi bekliyor', style: TextStyle(fontSize: 16 * s, color: navy, fontWeight: FontWeight.w900)),
-            SizedBox(height: 4 * s),
-            Text(pickedUp ? 'Tahmini teslimat süresi: 18 dk' : 'Büyükdere Cd. No:120, Şişli', style: TextStyle(fontSize: 11 * s, color: muted, fontWeight: FontWeight.w600)),
-          ])),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(delivered ? 'Teslim Edildi' : pickedUp ? 'Teslimata çıkıldı' : 'Kurye paketi bekliyor', style: TextStyle(fontSize: 16 * s, color: navy, fontWeight: FontWeight.w900)),
+              SizedBox(height: 4 * s),
+              Text(
+                delivered ? 'Gönderiniz başarıyla teslim edildi.' : pickedUp ? 'Tahmini teslimat süresi: 18 dk' : 'Büyükdere Cd. No:120, Şişli',
+                style: TextStyle(fontSize: 11 * s, color: muted, fontWeight: FontWeight.w600),
+              ),
+            ]),
+          ),
           if (!pickedUp)
             GestureDetector(
               onTap: () {
-                _timer?.cancel();
-                setState(() => pickedUp = true);
+                _pickupTimer?.cancel();
+                _markPickedUp();
               },
-              child: Container(padding: EdgeInsets.symmetric(horizontal: 11 * s, vertical: 9 * s), decoration: BoxDecoration(color: blue, borderRadius: BorderRadius.circular(14 * s)), child: Text('Paket Alındı', style: TextStyle(fontSize: 10 * s, color: Colors.white, fontWeight: FontWeight.w800))),
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 11 * s, vertical: 9 * s),
+                decoration: BoxDecoration(color: blue, borderRadius: BorderRadius.circular(14 * s)),
+                child: Text('Paket Alındı', style: TextStyle(fontSize: 10 * s, color: Colors.white, fontWeight: FontWeight.w800)),
+              ),
+            ),
+          if (pickedUp && !delivered)
+            GestureDetector(
+              onTap: () {
+                _deliveryTimer?.cancel();
+                _markDelivered();
+              },
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 11 * s, vertical: 9 * s),
+                decoration: BoxDecoration(color: green, borderRadius: BorderRadius.circular(14 * s)),
+                child: Text('Teslim Et', style: TextStyle(fontSize: 10 * s, color: Colors.white, fontWeight: FontWeight.w800)),
+              ),
             ),
         ]),
       );
@@ -204,23 +307,59 @@ class _PickupStatusPageState extends State<PickupStatusPage> {
         child: Row(children: [
           Container(width: 54 * s, height: 54 * s, decoration: const BoxDecoration(color: Color(0xFFEAF4FF), shape: BoxShape.circle), child: Icon(Icons.person_rounded, color: blue, size: 31 * s)),
           SizedBox(width: 10 * s),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Emre K.', style: TextStyle(fontSize: 17 * s, color: navy, fontWeight: FontWeight.w900)), Text('Honda PCX • 34 KYA 728', style: TextStyle(fontSize: 10.5 * s, color: muted))])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Emre K.', style: TextStyle(fontSize: 17 * s, color: navy, fontWeight: FontWeight.w900)),
+            Text('Honda PCX • 34 KYA 728', style: TextStyle(fontSize: 10.5 * s, color: muted)),
+            if (delivered) Row(children: [Icon(Icons.star_rounded, color: const Color(0xFFFFB400), size: 15 * s), Text(' 4.9 (532)', style: TextStyle(fontSize: 10 * s, color: muted))]),
+          ])),
           _smallAction(s, Icons.phone_rounded, green, _callCourier),
           SizedBox(width: 7 * s),
           _smallAction(s, Icons.chat_bubble_rounded, blue, _openChat),
         ]),
       );
 
-  Widget _shipmentCard(double s) => Container(
-        padding: EdgeInsets.all(13 * s),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22 * s)),
-        child: Row(children: [
-          Container(width: 44 * s, height: 44 * s, decoration: const BoxDecoration(color: Color(0xFFEAF4FF), shape: BoxShape.circle), child: Icon(Icons.inventory_2_rounded, color: blue, size: 23 * s)),
-          SizedBox(width: 10 * s),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Gönderi #12458', style: TextStyle(fontSize: 14 * s, color: navy, fontWeight: FontWeight.w900)), Text('Paket • 0–5 kg', style: TextStyle(fontSize: 10.5 * s, color: muted)), Text('Teslimat: Bağdat Cd. No:345, Kadıköy', style: TextStyle(fontSize: 9.5 * s, color: const Color(0xFF53627A)))])),
-          Text('₺120–150', style: TextStyle(fontSize: 14 * s, color: blue, fontWeight: FontWeight.w900)),
-        ]),
+  Widget _shipmentCard(double s) => InkWell(
+        onTap: _openDetails,
+        borderRadius: BorderRadius.circular(22 * s),
+        child: Container(
+          padding: EdgeInsets.all(13 * s),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22 * s)),
+          child: Row(children: [
+            Container(width: 44 * s, height: 44 * s, decoration: const BoxDecoration(color: Color(0xFFEAF4FF), shape: BoxShape.circle), child: Icon(Icons.inventory_2_rounded, color: blue, size: 23 * s)),
+            SizedBox(width: 10 * s),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Gönderi #12458', style: TextStyle(fontSize: 14 * s, color: navy, fontWeight: FontWeight.w900)),
+              Text('Paket • 0–5 kg', style: TextStyle(fontSize: 10.5 * s, color: muted)),
+              Text('Teslimat: Bağdat Cd. No:345, Kadıköy', style: TextStyle(fontSize: 9.5 * s, color: const Color(0xFF53627A))),
+            ])),
+            Text('₺120–150', style: TextStyle(fontSize: 14 * s, color: blue, fontWeight: FontWeight.w900)),
+          ]),
+        ),
       );
+
+  Widget _completionActions(double s) => Column(children: [
+        SizedBox(
+          width: double.infinity,
+          height: 54 * s,
+          child: ElevatedButton.icon(
+            onPressed: _newShipment,
+            icon: const Icon(Icons.inventory_2_outlined),
+            label: Text('Yeni Gönderi Oluştur', style: TextStyle(fontSize: 15 * s, fontWeight: FontWeight.w800)),
+            style: ElevatedButton.styleFrom(backgroundColor: green, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18 * s))),
+          ),
+        ),
+        SizedBox(height: 9 * s),
+        SizedBox(
+          width: double.infinity,
+          height: 50 * s,
+          child: OutlinedButton.icon(
+            onPressed: _openDetails,
+            icon: const Icon(Icons.description_outlined),
+            label: Text('Gönderi Detaylarını Gör', style: TextStyle(fontSize: 14 * s, fontWeight: FontWeight.w800)),
+            style: OutlinedButton.styleFrom(foregroundColor: navy, side: const BorderSide(color: Color(0xFFE0E7F0)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18 * s))),
+          ),
+        ),
+      ]);
 
   Widget _round(double s, IconData icon, VoidCallback onTap) => InkWell(onTap: onTap, borderRadius: BorderRadius.circular(18 * s), child: Container(width: 44 * s, height: 44 * s, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(17 * s), boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 12)]), child: Icon(icon, color: const Color(0xFF173C84), size: 24 * s)));
   Widget _pill(double s, IconData icon, String label) => Container(padding: EdgeInsets.symmetric(horizontal: 12 * s, vertical: 9 * s), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * s)), child: Row(children: [Icon(icon, color: const Color(0xFF173C84), size: 17 * s), SizedBox(width: 5 * s), Text(label, style: TextStyle(fontSize: 10.5 * s, color: navy, fontWeight: FontWeight.w700))]));
