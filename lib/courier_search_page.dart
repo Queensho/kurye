@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'courier_found_page.dart';
+import 'courier_found_flow_page.dart';
 
 class CourierSearchPage extends StatefulWidget {
   const CourierSearchPage({super.key});
@@ -25,7 +25,7 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
     _timer = Timer(const Duration(seconds: 5), () {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const CourierFoundPage()),
+        MaterialPageRoute(builder: (_) => const CourierFoundFlowPage()),
       );
     });
   }
