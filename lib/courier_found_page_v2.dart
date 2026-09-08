@@ -92,7 +92,10 @@ class CourierFoundPage extends StatelessWidget {
     decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(24*s),boxShadow:const[BoxShadow(color:Color(0x14000000),blurRadius:18,offset:Offset(0,5))]),
     child:Column(children:[
       Row(children:[
-        Stack(children:[Container(width:64*s,height:64*s,decoration:const BoxDecoration(shape:BoxShape.circle,color:Color(0xFFEAF4FF)),child:Icon(Icons.person_rounded,color:blue,size:36*s)),Positioned(right:1*s,top:1*s,child:Container(width:13*s,height:13*s,decoration:const BoxDecoration(shape:BoxShape.circle,color:green,border:Border.fromBorderSide(BorderSide(color:Colors.white,width:2))))]),
+        Stack(children:[
+          Container(width:64*s,height:64*s,decoration:const BoxDecoration(shape:BoxShape.circle,color:Color(0xFFEAF4FF)),child:Icon(Icons.person_rounded,color:blue,size:36*s)),
+          Positioned(right:1*s,top:1*s,child:Container(width:13*s,height:13*s,decoration:const BoxDecoration(shape:BoxShape.circle,color:green,border:Border.fromBorderSide(BorderSide(color:Colors.white,width:2))))),
+        ]),
         SizedBox(width:10*s),
         Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Emre K.',style:TextStyle(fontSize:20*s,color:navy,fontWeight:FontWeight.w900)),Row(children:[Icon(Icons.star_rounded,color:const Color(0xFFFFB400),size:17*s),Text(' 4.8 ',style:TextStyle(fontSize:12*s,color:navy,fontWeight:FontWeight.w800)),Text('(320)',style:TextStyle(fontSize:11*s,color:muted))])])),
         Container(padding:EdgeInsets.symmetric(horizontal:10*s,vertical:9*s),decoration:BoxDecoration(color:const Color(0xFFF1F6FC),borderRadius:BorderRadius.circular(15*s)),child:Column(crossAxisAlignment:CrossAxisAlignment.end,children:[Text('Honda PCX',style:TextStyle(fontSize:10*s,color:muted)),Text('34 KYA 728',style:TextStyle(fontSize:11*s,color:navy,fontWeight:FontWeight.w900))])),
