@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'courier_search_page.dart';
 
 class CreateShipmentPage extends StatefulWidget {
   const CreateShipmentPage({super.key});
@@ -63,7 +64,7 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
                 Container(height:64*s,padding:EdgeInsets.symmetric(horizontal:12*s),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(15*s),border:Border.all(color:const Color(0xFFE7ECF3))),child:Row(children:[Icon(Icons.chat_bubble_outline_rounded,color:const Color(0xFF65748A),size:20*s),SizedBox(width:10*s),Expanded(child:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Ek Not (isteğe bağlı)',style:TextStyle(fontSize:11*s,color:const Color(0xFF64748B),fontWeight:FontWeight.w600)),Text('Örn: Dikkatli taşınsın, kapıya bırakın, arayın...',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:9.5*s,color:const Color(0xFFA0A9B9))) ]))]))
               ])),
               SizedBox(height:16*s),
-              SizedBox(width:double.infinity,height:58*s,child:ElevatedButton.icon(onPressed:(){},icon:Icon(Icons.send_rounded,color:Colors.white,size:22*s),label:Text('Gönderi Oluştur',style:TextStyle(fontSize:18*s,fontWeight:FontWeight.w800)),style:ElevatedButton.styleFrom(backgroundColor:blue,foregroundColor:Colors.white,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20*s)),elevation:0))),
+              SizedBox(width:double.infinity,height:58*s,child:ElevatedButton.icon(onPressed:(){Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CourierSearchPage()));},icon:Icon(Icons.send_rounded,color:Colors.white,size:22*s),label:Text('Gönderi Oluştur',style:TextStyle(fontSize:18*s,fontWeight:FontWeight.w800)),style:ElevatedButton.styleFrom(backgroundColor:blue,foregroundColor:Colors.white,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20*s)),elevation:0))),
             ]),
           );
         }),
