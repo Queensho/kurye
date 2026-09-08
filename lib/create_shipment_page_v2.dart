@@ -36,7 +36,7 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
               Container(height:70*s,decoration:BoxDecoration(color:const Color(0xFFE9F4FF),borderRadius:BorderRadius.circular(18*s)),child:Stack(children:[
                 Positioned(left:12*s,top:15*s,child:Container(width:40*s,height:40*s,decoration:BoxDecoration(color:blue,borderRadius:BorderRadius.circular(13*s)),child:Icon(Icons.bolt_rounded,color:Colors.white,size:27*s))),
                 Positioned(left:63*s,top:14*s,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Dakikalar içinde kurye yola çıksın!',style:TextStyle(fontSize:12*s,fontWeight:FontWeight.w800,color:const Color(0xFF163C80))),SizedBox(height:4*s),Text('İhtiyacın ne olursa olsun yanındayız.',style:TextStyle(fontSize:10.5*s,color:const Color(0xFF31578D)))])),
-                Positioned(right:-3*s,bottom:-5*s,width:135*s,height:88*s,child:Image.asset('assets/images/kurye_hd.png',fit:BoxFit.contain)),
+                Positioned(right:-3*s,bottom:-5*s,width:135*s,height:88*s,child:Image.asset('assets/images/kurye_header_hd.png',fit:BoxFit.contain,alignment:Alignment.bottomRight,filterQuality:FilterQuality.high)),
               ])),
               SizedBox(height:20*s),
               Row(children:[Expanded(child:Text('Taşıma Türü',style:TextStyle(fontSize:19*s,fontWeight:FontWeight.w900,color:navy))),Text('Hangisini seçmeliyim?',style:TextStyle(fontSize:11*s,color:blue)),Icon(Icons.chevron_right_rounded,color:blue,size:18*s)]),
