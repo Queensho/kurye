@@ -71,33 +71,71 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
       setState(() => results = []);
       return;
     }
-    debounce = Timer(const Duration(milliseconds: 450), () => _search(q));
+    debounce = Timer(const Duration(milliseconds: 550), () => _search(q));
   }
 
-  Future<void> _search(String query) async {
+  bool _looksLikeFullAddress(String query) {
+    return RegExp(r'\d').hasMatch(query) &&
+        (query.toLowerCase().contains('sokak') ||
+            query.toLowerCase().contains('sk') ||
+            query.toLowerCase().contains('cadde') ||
+            query.toLowerCase().contains('cd') ||
+            query.toLowerCase().contains('bulvar') ||
+            query.toLowerCase().contains('mahall'));
+  }
+
+  String _normalizeQuery(String query) {
+    return query
+        .replaceAll(RegExp(r'\bno\.?\s*', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  Future<List<AddressSelection>> _fetchAddresses(String query) async {
+    final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+      'q': '$query, Türkiye',
+      'format': 'jsonv2',
+      'addressdetails': '1',
+      'limit': '7',
+      'countrycodes': 'tr',
+      'accept-language': 'tr',
+    });
+    final response = await http.get(uri);
+    if (response.statusCode != 200) {
+      throw Exception('Adres servisi yanıt vermedi');
+    }
+    final data = jsonDecode(response.body) as List<dynamic>;
+    return data.map((item) {
+      final m = item as Map<String, dynamic>;
+      return AddressSelection(
+        displayName: (m['display_name'] ?? '').toString(),
+        lat: double.parse(m['lat'].toString()),
+        lng: double.parse(m['lon'].toString()),
+      );
+    }).where((e) => e.displayName.isNotEmpty).toList();
+  }
+
+  Future<void> _search(String query, {bool forceSelect = false}) async {
+    if (!mounted) return;
     setState(() => searching = true);
     try {
-      final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
-        'q': '$query, Türkiye',
-        'format': 'jsonv2',
-        'addressdetails': '1',
-        'limit': '7',
-        'countrycodes': 'tr',
-        'accept-language': 'tr',
-      });
-      final response = await http.get(uri);
-      if (response.statusCode != 200) throw Exception('Adres servisi yanıt vermedi');
-      final data = jsonDecode(response.body) as List<dynamic>;
-      final parsed = data.map((item) {
-        final m = item as Map<String, dynamic>;
-        return AddressSelection(
-          displayName: (m['display_name'] ?? '').toString(),
-          lat: double.parse(m['lat'].toString()),
-          lng: double.parse(m['lon'].toString()),
-        );
-      }).where((e) => e.displayName.isNotEmpty).toList();
+      var parsed = await _fetchAddresses(query);
+
+      // Nominatim bazı Türkçe adreslerde "No 41" yerine "41" biçimini daha iyi buluyor.
+      if (parsed.isEmpty) {
+        final normalized = _normalizeQuery(query);
+        if (normalized != query) {
+          parsed = await _fetchAddresses(normalized);
+        }
+      }
+
       if (!mounted) return;
       setState(() => results = parsed);
+
+      // Sokak + kapı numarası girildiğinde en iyi eşleşmeyi doğrudan haritada işaretle.
+      if (parsed.isNotEmpty && (forceSelect || _looksLikeFullAddress(query))) {
+        await _selectResult(parsed.first, keepSearchText: true);
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,13 +146,13 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     }
   }
 
-  Future<void> _selectResult(AddressSelection value) async {
+  Future<void> _selectResult(AddressSelection value, {bool keepSearchText = false}) async {
     setState(() {
       selected = value;
-      controller.text = value.displayName;
+      if (!keepSearchText) controller.text = value.displayName;
       results = [];
     });
-    mapController.move(value.point, 16);
+    mapController.move(value.point, 17);
   }
 
   Future<void> _selectMapPoint(TapPosition _, LatLng point) async {
@@ -180,9 +218,14 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
             child: TextField(
               controller: controller,
               autofocus: widget.initial == null,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (value) {
+                final q = value.trim();
+                if (q.length >= 3) _search(q, forceSelect: true);
+              },
               onChanged: _onSearchChanged,
               decoration: InputDecoration(
-                hintText: 'Mahalle, cadde, sokak veya adres ara',
+                hintText: 'Mahalle, cadde, sokak ve kapı no ara',
                 prefixIcon: const Icon(Icons.search_rounded, color: blue),
                 suffixIcon: searching
                     ? const Padding(
@@ -193,7 +236,11 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                         ? IconButton(
                             onPressed: () {
                               controller.clear();
-                              setState(() => results = []);
+                              setState(() {
+                                results = [];
+                                selected = null;
+                              });
+                              mapController.move(turkeyCenter, 5.2);
                             },
                             icon: const Icon(Icons.close_rounded),
                           )
