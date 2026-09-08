@@ -19,6 +19,14 @@ class AddressSelection {
   LatLng get point => LatLng(lat, lng);
 }
 
+class _LocationIqException implements Exception {
+  const _LocationIqException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class AddressPickerPage extends StatefulWidget {
   const AddressPickerPage({
     super.key,
@@ -82,12 +90,45 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     return '$normalized, Türkiye';
   }
 
-  Future<List<AddressSelection>> _locationIqSearch(String query) async {
-    if (locationIqKey.isEmpty) {
-      throw Exception('LocationIQ API anahtarı tanımlı değil');
+  String _shortBody(String body) {
+    final clean = body.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (clean.length <= 140) return clean;
+    return '${clean.substring(0, 140)}…';
+  }
+
+  Future<http.Response> _locationIqGet(
+    String path,
+    Map<String, String> params,
+  ) async {
+    Object? lastError;
+
+    for (final host in const ['eu1.locationiq.com', 'us1.locationiq.com']) {
+      try {
+        final uri = Uri.https(host, path, params);
+        final response = await http.get(uri);
+        if (response.statusCode == 200) return response;
+
+        lastError = _LocationIqException(
+          'LocationIQ HTTP ${response.statusCode}: ${_shortBody(response.body)}',
+        );
+
+        if (response.statusCode == 401 || response.statusCode == 403) break;
+      } catch (e) {
+        lastError = _LocationIqException(
+          'Ağ/CORS hatası (${e.runtimeType}): ${e.toString()}',
+        );
+      }
     }
 
-    final uri = Uri.https('eu1.locationiq.com', '/v1/search', {
+    throw lastError ?? const _LocationIqException('LocationIQ isteği başarısız');
+  }
+
+  Future<List<AddressSelection>> _locationIqSearch(String query) async {
+    if (locationIqKey.isEmpty) {
+      throw const _LocationIqException('LocationIQ API anahtarı tanımlı değil');
+    }
+
+    final response = await _locationIqGet('/v1/search', {
       'key': locationIqKey,
       'q': _buildLocationIqQuery(query),
       'format': 'json',
@@ -97,15 +138,6 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
       'normalizeaddress': '1',
       'limit': '8',
     });
-
-    final response = await http.get(
-      uri,
-      headers: const {'Accept': 'application/json'},
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('LocationIQ adres servisi yanıt vermedi');
-    }
 
     final rows = jsonDecode(response.body) as List<dynamic>;
     final found = <AddressSelection>[];
@@ -161,13 +193,15 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      final missingKey = e.toString().contains('API anahtarı');
+      final text = e.toString();
+      final missingKey = text.contains('API anahtarı');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 8),
           content: Text(
             missingKey
                 ? 'Adres servisi henüz etkin değil. LOCATIONIQ_API_KEY eklenmeli.'
-                : 'Adres servisine ulaşılamadı. Tekrar deneyin.',
+                : 'Adres servisi hatası: $text',
           ),
         ),
       );
@@ -208,7 +242,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     mapController.move(point, 17);
 
     try {
-      final uri = Uri.https('eu1.locationiq.com', '/v1/reverse', {
+      final response = await _locationIqGet('/v1/reverse', {
         'key': locationIqKey,
         'lat': point.latitude.toString(),
         'lon': point.longitude.toString(),
@@ -216,14 +250,6 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
         'accept-language': 'tr',
         'normalizeaddress': '1',
       });
-
-      final response = await http.get(
-        uri,
-        headers: const {'Accept': 'application/json'},
-      );
-      if (response.statusCode != 200) {
-        throw Exception('Reverse geocode başarısız');
-      }
 
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       final name =
@@ -239,7 +265,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
         selected = value;
         controller.text = name;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         selected = AddressSelection(
@@ -248,6 +274,12 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
           lng: point.longitude,
         );
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 8),
+          content: Text('Konum adresi alınamadı: $e'),
+        ),
+      );
     } finally {
       if (mounted) setState(() => resolving = false);
     }
