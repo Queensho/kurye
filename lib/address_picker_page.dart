@@ -45,7 +45,8 @@ class _ParsedAddress {
   bool get hasStructuredParts =>
       (street?.isNotEmpty ?? false) ||
       (neighbourhood?.isNotEmpty ?? false) ||
-      (district?.isNotEmpty ?? false);
+      (district?.isNotEmpty ?? false) ||
+      (city?.isNotEmpty ?? false);
 }
 
 class AddressPickerPage extends StatefulWidget {
@@ -93,9 +94,12 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     q = q
         .replaceAll(RegExp(r'\bvaklı\b', caseSensitive: false), 'Kavaklı')
         .replaceAll(RegExp(r'\bmah\.?\b', caseSensitive: false), 'Mahallesi')
+        .replaceAll(RegExp(r'\bmh\.?\b', caseSensitive: false), 'Mahallesi')
         .replaceAll(RegExp(r'\bsk\.?\b', caseSensitive: false), 'Sokak')
+        .replaceAll(RegExp(r'\bsok\.?\b', caseSensitive: false), 'Sokak')
         .replaceAll(RegExp(r'\bcd\.?\b', caseSensitive: false), 'Cadde')
-        .replaceAll(RegExp(r'\bno\.?\s*', caseSensitive: false), 'No ')
+        .replaceAll(RegExp(r'\bno\.?\s*:?\s*', caseSensitive: false), 'No ')
+        .replaceAll(RegExp(r'\s*,\s*'), ', ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
     return q;
@@ -111,32 +115,58 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     String? district;
     String? city;
 
-    final neighborhoodMatch = RegExp(
-      r'(.+?)\s+(mahallesi|mahalle)\b',
+    final neighbourhoodMatch = RegExp(
+      r'(^|,|\s)([^,]+?)\s+(?:mahallesi|mahalle)\b',
       caseSensitive: false,
     ).firstMatch(normalized);
-    if (neighborhoodMatch != null) {
-      neighbourhood = neighborhoodMatch.group(1)?.trim();
+    if (neighbourhoodMatch != null) {
+      neighbourhood = neighbourhoodMatch.group(2)?.trim();
     }
 
     final streetMatch = RegExp(
-      r'(?:mahallesi|mahalle)?\s*([^,]+?\s+(?:sokak|sokağı|sok|cadde|caddesi|bulvar|bulvarı))\b',
+      r'(?:mahallesi|mahalle)?\s*([^,]+?\s+(?:sokak|sokağı|cadde|caddesi|bulvar|bulvarı))\b',
       caseSensitive: false,
     ).firstMatch(normalized);
     if (streetMatch != null) {
       street = streetMatch.group(1)?.trim();
+      street = street
+          ?.replaceFirst(RegExp(r'^.*?\b(?:mahallesi|mahalle)\s+', caseSensitive: false), '')
+          .trim();
     }
 
     final numberMatch = RegExp(
-      r'\b(?:no\s*)?(\d+[a-zA-Z]?)\b\s*$',
+      r'\b(?:no\s*)?(\d+[a-zA-Z]?)\b',
       caseSensitive: false,
-    ).firstMatch(normalized);
-    if (numberMatch != null) houseNumber = numberMatch.group(1)?.trim();
+    ).allMatches(normalized).toList();
+    if (numberMatch.isNotEmpty) {
+      final explicitNo = RegExp(
+        r'\bno\s*(\d+[a-zA-Z]?)\b',
+        caseSensitive: false,
+      ).firstMatch(normalized);
+      houseNumber = (explicitNo ?? numberMatch.last).group(1)?.trim();
+    }
 
-    // Known local context fallback for the current Beylikdüzü test address.
+    // Türkiye'de en sık kullanılan il/ilçe yazımlarını metinden yakala.
+    const knownCities = <String>[
+      'İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Adana', 'Konya',
+      'Kocaeli', 'Mersin', 'Gaziantep', 'Samsun', 'Tekirdağ', 'Edirne',
+      'Sakarya', 'Balıkesir', 'Eskişehir', 'Kayseri', 'Trabzon', 'Hatay',
+    ];
+    for (final candidate in knownCities) {
+      if (lower.contains(candidate.toLowerCase())) {
+        city = candidate;
+        break;
+      }
+    }
+
+    // Şu an test edilen Kavaklı adresinin yerel bağlamı.
     if (lower.contains('kavaklı')) {
       district = 'Beylikdüzü';
-      city = 'İstanbul';
+      city ??= 'İstanbul';
+    }
+    if (lower.contains('beylikdüzü')) {
+      district = 'Beylikdüzü';
+      city ??= 'İstanbul';
     }
 
     return _ParsedAddress(
@@ -151,7 +181,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
   String _buildLocationIqQuery(String query) {
     final normalized = _normalizeQuery(query);
     final lower = normalized.toLowerCase();
-    if (lower.contains('kavaklı')) {
+    if (lower.contains('kavaklı') || lower.contains('beylikdüzü')) {
       return '$normalized, Beylikdüzü, İstanbul, Türkiye';
     }
     return '$normalized, Türkiye';
@@ -235,6 +265,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
       'accept-language': 'tr',
       'addressdetails': '1',
       'normalizeaddress': '1',
+      'normalizecity': '1',
       'limit': '8',
     };
 
@@ -243,14 +274,11 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     if (parsed.street?.isNotEmpty ?? false) streetParts.add(parsed.street!);
     if (streetParts.isNotEmpty) params['street'] = streetParts.join(' ');
 
-    if (parsed.neighbourhood?.isNotEmpty ?? false) {
-      params['county'] = parsed.neighbourhood!;
-    }
     if (parsed.district?.isNotEmpty ?? false) params['city'] = parsed.district!;
     if (parsed.city?.isNotEmpty ?? false) params['state'] = parsed.city!;
 
     final response = await _locationIqGet(
-      '/v1/search',
+      '/v1/search/structured',
       params,
       allowNotFound: true,
     );
@@ -263,6 +291,62 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
       {
         'key': locationIqKey,
         'q': _buildLocationIqQuery(query),
+        'format': 'json',
+        'countrycodes': 'tr',
+        'accept-language': 'tr',
+        'addressdetails': '1',
+        'normalizeaddress': '1',
+        'normalizecity': '1',
+        'limit': '8',
+      },
+      allowNotFound: true,
+    );
+    return _decodeSearchResponse(response);
+  }
+
+  Future<List<AddressSelection>> _streetFallbackSearch(String query) async {
+    final parsed = _parseTurkishAddress(query);
+    final pieces = <String>[];
+    if (parsed.street?.isNotEmpty ?? false) pieces.add(parsed.street!);
+    if (parsed.neighbourhood?.isNotEmpty ?? false) {
+      pieces.add('${parsed.neighbourhood} Mahallesi');
+    }
+    if (parsed.district?.isNotEmpty ?? false) pieces.add(parsed.district!);
+    if (parsed.city?.isNotEmpty ?? false) pieces.add(parsed.city!);
+    if (pieces.isEmpty) return const [];
+
+    final response = await _locationIqGet(
+      '/v1/search',
+      {
+        'key': locationIqKey,
+        'q': '${pieces.join(', ')}, Türkiye',
+        'format': 'json',
+        'countrycodes': 'tr',
+        'accept-language': 'tr',
+        'addressdetails': '1',
+        'normalizeaddress': '1',
+        'limit': '8',
+      },
+      allowNotFound: true,
+    );
+    return _decodeSearchResponse(response);
+  }
+
+  Future<List<AddressSelection>> _neighbourhoodFallbackSearch(String query) async {
+    final parsed = _parseTurkishAddress(query);
+    final pieces = <String>[];
+    if (parsed.neighbourhood?.isNotEmpty ?? false) {
+      pieces.add('${parsed.neighbourhood} Mahallesi');
+    }
+    if (parsed.district?.isNotEmpty ?? false) pieces.add(parsed.district!);
+    if (parsed.city?.isNotEmpty ?? false) pieces.add(parsed.city!);
+    if (pieces.isEmpty) return const [];
+
+    final response = await _locationIqGet(
+      '/v1/search',
+      {
+        'key': locationIqKey,
+        'q': '${pieces.join(', ')}, Türkiye',
         'format': 'json',
         'countrycodes': 'tr',
         'accept-language': 'tr',
@@ -283,7 +367,13 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     final structured = await _structuredSearch(query);
     if (structured.isNotEmpty) return structured;
 
-    return _freeTextSearch(query);
+    final freeText = await _freeTextSearch(query);
+    if (freeText.isNotEmpty) return freeText;
+
+    final street = await _streetFallbackSearch(query);
+    if (street.isNotEmpty) return street;
+
+    return _neighbourhoodFallbackSearch(query);
   }
 
   Future<void> _search([String? raw]) async {
@@ -309,7 +399,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
           const SnackBar(
             duration: Duration(seconds: 6),
             content: Text(
-              'Adres bulunamadı. İlçe ve il bilgisini de ekleyerek tekrar deneyin.',
+              'Tam adres bulunamadı. Mahalle, sokak, ilçe ve il bilgisini kontrol et.',
             ),
           ),
         );
@@ -434,7 +524,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
               onSubmitted: _search,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                hintText: 'Mahalle, cadde, sokak ve kapı no ara',
+                hintText: 'Mahalle, sokak, no, ilçe ve il ara',
                 prefixIcon: const Icon(Icons.search_rounded, color: blue),
                 suffixIcon: searching
                     ? const Padding(
@@ -490,8 +580,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                   final item = results[i];
                   return ListTile(
                     dense: true,
-                    leading:
-                        const Icon(Icons.location_on_outlined, color: blue),
+                    leading: const Icon(Icons.location_on_outlined, color: blue),
                     title: Text(
                       item.displayName,
                       maxLines: 2,
@@ -521,8 +610,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.queensho.kurye',
                     ),
                     if (selected != null)
@@ -559,10 +647,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                   top: 12,
                   left: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(15),
@@ -603,11 +688,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.place_rounded,
-                            color: blue,
-                            size: 19,
-                          ),
+                          const Icon(Icons.place_rounded, color: blue, size: 19),
                           const SizedBox(width: 7),
                           Expanded(
                             child: Text(
@@ -641,9 +722,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                         elevation: 0,
                       ),
                       child: Text(
-                        resolving
-                            ? 'Konum belirleniyor...'
-                            : 'Bu adresi kullan',
+                        resolving ? 'Konum belirleniyor...' : 'Bu adresi kullan',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
