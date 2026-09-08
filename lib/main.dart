@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'home_pixel_preview.dart';
+import 'create_shipment_page.dart';
 
 void main() {
   runApp(const KuryeApp());
@@ -15,10 +15,10 @@ class KuryeApp extends StatelessWidget {
       title: 'Kurye',
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF6FBFF),
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF178EF4)),
+        scaffoldBackgroundColor: const Color(0xFFF7FBFF),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF168CF5)),
       ),
-      home: const HomePixelPreview(),
+      home: const CreateShipmentPage(),
     );
   }
 }
