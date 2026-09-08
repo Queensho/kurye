@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'create_shipment_page_v2.dart';
 import 'my_shipments_page.dart';
 import 'messages_page.dart';
+import 'profile_page.dart';
 
 class HomePixelPreview extends StatelessWidget {
   const HomePixelPreview({super.key});
@@ -25,6 +26,12 @@ class HomePixelPreview extends StatelessWidget {
   void _openMessages(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const MessagesPage()),
+    );
+  }
+
+  void _openProfile(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProfilePage()),
     );
   }
 
@@ -242,7 +249,7 @@ class HomePixelPreview extends StatelessWidget {
           _navItem(fs, Icons.home_rounded, 'Ana Sayfa', true, () {}),
           _navItem(fs, Icons.receipt_long_rounded, 'Gönderilerim', false, () => _openMyShipments(context)),
           _navItem(fs, Icons.chat_bubble_outline_rounded, 'Mesajlar', false, () => _openMessages(context)),
-          _navItem(fs, Icons.person_outline_rounded, 'Profilim', false, () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil ekranını sıradaki adımda bağlayacağız.')))),
+          _navItem(fs, Icons.person_outline_rounded, 'Profilim', false, () => _openProfile(context)),
         ]),
       );
 
