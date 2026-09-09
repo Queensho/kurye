@@ -41,12 +41,19 @@ jobs:
       - name: Build web
         run: flutter build web --release --base-href /kurye/ --dart-define=LOCATIONIQ_API_KEY=${{ secrets.LOCATIONIQ_API_KEY }}
 
-      - name: Publish customer entry paths
+      - name: Publish app entry paths
         run: |
-          mkdir -p 'build/web/müsteri' 'build/web/müşteri' build/web/musteri
-          cp build/web/index.html 'build/web/müsteri/index.html'
-          cp build/web/index.html 'build/web/müşteri/index.html'
-          cp build/web/index.html build/web/musteri/index.html
+          paths=(
+            'müsteri' 'müşteri' 'musteri'
+            'admin'
+            'profil' 'kurye-profili'
+            'havuz' 'is-havuzu' 'iş-havuzu'
+            'kazanc' 'kazanç' 'earnings'
+          )
+          for path in "${paths[@]}"; do
+            mkdir -p "build/web/$path"
+            cp build/web/index.html "build/web/$path/index.html"
+          done
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
