@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'courier_home_page.dart';
 import 'data/app_data_service.dart';
-import 'home_pixel_preview.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +30,7 @@ class KuryeApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF168CF5)),
       ),
       home: startupError == null
-          ? const HomePixelPreview()
+          ? const CourierHomePage()
           : _BackendErrorPage(error: startupError!),
     );
   }
