@@ -16,7 +16,8 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
   static const muted = Color(0xFF7B8797);
   static const bg = Color(0xFFF4F9FD);
 
-  bool online = true;
+  bool online = false;
+  bool statusLoading = true;
   bool mapMode = false;
   int selectedFilter = 0;
   String? claimingId;
@@ -25,35 +26,54 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
   @override
   void initState() {
     super.initState();
-    _activateCourier();
     poolStream = AppDataService.instance.watchCourierPool();
+    _loadCourierState();
   }
 
-  Future<void> _activateCourier() async {
+  Future<void> _loadCourierState() async {
+    final data = AppDataService.instance;
     try {
-      await AppDataService.instance.setCourierOnline(
-        online: true,
-        vehicleType: 'motorcycle',
-      );
-    } catch (e) {
+      if (!data.isSignedIn) {
+        if (mounted) setState(() { online = false; statusLoading = false; });
+        return;
+      }
+      final row = await data.client
+          .from('couriers')
+          .select('is_online')
+          .eq('user_id', data.userId)
+          .maybeSingle();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kurye durumu açılamadı: $e')),
-      );
+      setState(() {
+        online = row?['is_online'] == true;
+        statusLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() { online = false; statusLoading = false; });
     }
   }
 
   Future<void> _setOnline(bool value) async {
-    setState(() => online = value);
+    final previous = online;
+    setState(() {
+      online = value;
+      statusLoading = true;
+    });
     try {
       await AppDataService.instance.setCourierOnline(
         online: value,
         vehicleType: 'motorcycle',
       );
-      setState(() => poolStream = AppDataService.instance.watchCourierPool());
+      if (!mounted) return;
+      setState(() {
+        statusLoading = false;
+        poolStream = AppDataService.instance.watchCourierPool();
+      });
     } catch (e) {
       if (!mounted) return;
-      setState(() => online = !value);
+      setState(() {
+        online = previous;
+        statusLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Durum güncellenemedi: $e')),
       );
@@ -82,42 +102,43 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
             _header(),
             _filters(),
             Expanded(
-              child: StreamBuilder<List<Map<String, dynamic>>>(
-                stream: poolStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return _stateMessage(
-                      Icons.cloud_off_rounded,
-                      'İş havuzu yüklenemedi',
-                      snapshot.error.toString(),
-                    );
-                  }
-                  final jobs = _applyFilter(snapshot.data ?? const []);
-                  if (!online) {
-                    return _stateMessage(
-                      Icons.power_settings_new_rounded,
-                      'Çevrimdışısın',
-                      'Yeni işleri görmek ve almak için Online ol.',
-                    );
-                  }
-                  if (jobs.isEmpty) {
-                    return _stateMessage(
-                      Icons.inbox_outlined,
-                      'Şu an uygun iş yok',
-                      'Müşteri yeni bir gönderi oluşturduğunda burada anında görünecek.',
-                    );
-                  }
-                  if (mapMode) return _mapPlaceholder(jobs.length);
-                  return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-                    itemCount: jobs.length,
-                    itemBuilder: (_, i) => _jobCard(jobs[i]),
-                  );
-                },
-              ),
+              child: statusLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : !online
+                      ? _stateMessage(
+                          Icons.power_settings_new_rounded,
+                          'Çevrimdışısın',
+                          'İş havuzundaki siparişleri görmek için Online ol.',
+                        )
+                      : StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: poolStream,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
+                            if (snapshot.hasError) {
+                              return _stateMessage(
+                                Icons.cloud_off_rounded,
+                                'İş havuzu yüklenemedi',
+                                snapshot.error.toString(),
+                              );
+                            }
+                            final jobs = _applyFilter(snapshot.data ?? const []);
+                            if (jobs.isEmpty) {
+                              return _stateMessage(
+                                Icons.inbox_outlined,
+                                'Şu an uygun iş yok',
+                                'Müşteri yeni bir gönderi oluşturduğunda burada anında görünecek.',
+                              );
+                            }
+                            if (mapMode) return _mapPlaceholder(jobs.length);
+                            return ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+                              itemCount: jobs.length,
+                              itemBuilder: (_, i) => _jobCard(jobs[i]),
+                            );
+                          },
+                        ),
             ),
           ],
         ),
@@ -164,7 +185,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
                       Text(online ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
                       Switch(
                         value: online,
-                        onChanged: _setOnline,
+                        onChanged: statusLoading ? null : _setOnline,
                         activeThumbColor: Colors.white,
                         activeTrackColor: Colors.white24,
                         inactiveThumbColor: Colors.white,
@@ -195,7 +216,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
   Widget _mode(bool value, IconData icon, String label) {
     final selected = mapMode == value;
     return InkWell(
-      onTap: () => setState(() => mapMode = value),
+      onTap: online ? () => setState(() => mapMode = value) : null,
       borderRadius: BorderRadius.circular(22),
       child: Container(
         alignment: Alignment.center,
@@ -228,7 +249,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
         itemBuilder: (_, i) {
           final selected = selectedFilter == i;
           return InkWell(
-            onTap: () => setState(() => selectedFilter = i),
+            onTap: online ? () => setState(() => selectedFilter = i) : null,
             borderRadius: BorderRadius.circular(22),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 17),
@@ -332,6 +353,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
   }
 
   Future<void> _takeJob(Map<String, dynamic> job) async {
+    if (!online) return;
     final id = job['id'].toString();
     setState(() => claimingId = id);
     try {
@@ -415,7 +437,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
             children: [
               _nav(Icons.home_rounded, 'Ana Sayfa', false, () => Navigator.maybePop(context)),
               _nav(Icons.format_list_bulleted_rounded, 'İş Havuzu', true, () => setState(() => mapMode = false)),
-              _nav(Icons.map_outlined, 'Harita', mapMode, () => setState(() => mapMode = true)),
+              _nav(Icons.map_outlined, 'Harita', mapMode, () => online ? setState(() => mapMode = true) : null),
               _nav(Icons.person_outline_rounded, 'Profilim', false, () => Navigator.maybePop(context)),
             ],
           ),
