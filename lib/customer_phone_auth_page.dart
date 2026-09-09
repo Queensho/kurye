@@ -8,19 +8,102 @@ class CustomerPhoneAuthPage extends StatefulWidget {
 }
 
 class _CustomerPhoneAuthPageState extends State<CustomerPhoneAuthPage>{
-  final phone=TextEditingController(); final otp=TextEditingController();
-  bool codeSent=false, loading=false; String? error;
-  String normalized(){ var v=phone.text.replaceAll(RegExp(r'\D'),''); if(v.startsWith('0'))v=v.substring(1); if(v.startsWith('90'))return '+$v'; return '+90$v'; }
-  Future<void> send() async { if(phone.text.replaceAll(RegExp(r'\D'),'').length<10){setState(()=>error='Geçerli telefon numarası gir.');return;} setState(()=>loading=true); try{await AppDataService.instance.sendPhoneOtp(normalized()); if(mounted)setState((){codeSent=true;error=null;});}catch(e){if(mounted)setState(()=>error='OTP gönderilemedi: $e');}finally{if(mounted)setState(()=>loading=false);} }
-  Future<void> verify() async { if(otp.text.length!=6){setState(()=>error='6 haneli kodu gir.');return;} setState(()=>loading=true); try{await AppDataService.instance.verifyPhoneOtp(phone:normalized(),token:otp.text); if(mounted)Navigator.of(context).pushReplacement(MaterialPageRoute(builder:(_)=>const HomePixelPreview()));}catch(e){if(mounted)setState(()=>error='Kod doğrulanamadı.');}finally{if(mounted)setState(()=>loading=false);} }
-  @override Widget build(BuildContext context)=>Scaffold(backgroundColor:const Color(0xfff6faff),body:SafeArea(child:Center(child:SingleChildScrollView(padding:const EdgeInsets.all(28),child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:430),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-    const CircleAvatar(radius:38,backgroundColor:Color(0xff168cf5),child:Icon(Icons.local_shipping_rounded,color:Colors.white,size:38)),const SizedBox(height:24),
-    Text(codeSent?'Doğrulama Kodu':'Hoş Geldin',textAlign:TextAlign.center,style:const TextStyle(fontSize:30,fontWeight:FontWeight.w900,color:Color(0xff10213e))),const SizedBox(height:8),
-    Text(codeSent?'${normalized()} numarasına gelen 6 haneli kodu gir.':'Telefon numaranla giriş yap veya yeni hesap oluştur.',textAlign:TextAlign.center,style:const TextStyle(color:Color(0xff718096),fontSize:14)),const SizedBox(height:30),
-    if(!codeSent) TextField(controller:phone,keyboardType:TextInputType.phone,decoration:InputDecoration(prefixText:'+90  ',labelText:'Telefon Numarası',hintText:'5XX XXX XX XX',filled:true,fillColor:Colors.white,border:OutlineInputBorder(borderRadius:BorderRadius.circular(18),borderSide:BorderSide.none))) else TextField(controller:otp,keyboardType:TextInputType.number,maxLength:6,textAlign:TextAlign.center,style:const TextStyle(fontSize:28,fontWeight:FontWeight.w800,letterSpacing:10),decoration:InputDecoration(counterText:'',hintText:'••••••',filled:true,fillColor:Colors.white,border:OutlineInputBorder(borderRadius:BorderRadius.circular(18),borderSide:BorderSide.none))),
-    if(error!=null)...[const SizedBox(height:12),Text(error!,textAlign:TextAlign.center,style:const TextStyle(color:Colors.red,fontWeight:FontWeight.w600))],const SizedBox(height:18),
-    FilledButton(onPressed:loading?null:(codeSent?verify:send),style:FilledButton.styleFrom(backgroundColor:const Color(0xff168cf5),minimumSize:const Size.fromHeight(58),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20))),child:loading?const SizedBox(width:22,height:22,child:CircularProgressIndicator(strokeWidth:2,color:Colors.white)):Text(codeSent?'Giriş Yap':'Kod Gönder',style:const TextStyle(fontSize:17,fontWeight:FontWeight.w900))),
-    if(codeSent)TextButton(onPressed:loading?null:()=>setState((){codeSent=false;otp.clear();error=null;}),child:const Text('Telefon numarasını değiştir')),
-    const SizedBox(height:18),const Text('Devam ederek Kullanım Koşulları ve Gizlilik Politikasını kabul etmiş olursun.',textAlign:TextAlign.center,style:TextStyle(color:Color(0xff94a3b8),fontSize:11)),
-  ]))))));
+  final phone=TextEditingController();
+  final password=TextEditingController();
+  final confirmPassword=TextEditingController();
+  bool isRegister=false, loading=false, obscure=true, obscure2=true;
+  String? error;
+
+  String normalized(){
+    var v=phone.text.replaceAll(RegExp(r'\D'),'');
+    if(v.startsWith('0')) v=v.substring(1);
+    if(v.startsWith('90')) return '+$v';
+    return '+90$v';
+  }
+
+  bool validPhone()=>phone.text.replaceAll(RegExp(r'\D'),'').length>=10;
+
+  Future<void> submit() async {
+    if(!validPhone()){setState(()=>error='Geçerli bir telefon numarası gir.');return;}
+    if(password.text.length<6){setState(()=>error='Şifre en az 6 karakter olmalı.');return;}
+    if(isRegister && password.text!=confirmPassword.text){setState(()=>error='Şifreler eşleşmiyor.');return;}
+    setState((){loading=true;error=null;});
+    try{
+      if(isRegister){
+        await AppDataService.instance.signUpWithPhonePassword(phone:normalized(),password:password.text);
+      }else{
+        await AppDataService.instance.signInWithPhonePassword(phone:normalized(),password:password.text);
+      }
+      if(mounted) Navigator.of(context).pushReplacement(MaterialPageRoute(builder:(_)=>const HomePixelPreview()));
+    }catch(e){
+      if(!mounted)return;
+      final text=e.toString();
+      setState(()=>error=text.contains('Invalid login credentials')?'Telefon numarası veya şifre hatalı.':text.replaceFirst('StateError: ',''));
+    }finally{if(mounted)setState(()=>loading=false);}
+  }
+
+  InputDecoration fieldDecoration(String label,{Widget? suffix})=>InputDecoration(
+    labelText:label,
+    filled:true,
+    fillColor:Colors.white,
+    suffixIcon:suffix,
+    border:OutlineInputBorder(borderRadius:BorderRadius.circular(18),borderSide:BorderSide.none),
+  );
+
+  @override Widget build(BuildContext context)=>Scaffold(
+    backgroundColor:const Color(0xfff6faff),
+    body:SafeArea(
+      child:Center(
+        child:SingleChildScrollView(
+          padding:const EdgeInsets.all(28),
+          child:ConstrainedBox(
+            constraints:const BoxConstraints(maxWidth:430),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+              const CircleAvatar(radius:38,backgroundColor:Color(0xff168cf5),child:Icon(Icons.local_shipping_rounded,color:Colors.white,size:38)),
+              const SizedBox(height:24),
+              Text(isRegister?'Hesap Oluştur':'Hoş Geldin',textAlign:TextAlign.center,style:const TextStyle(fontSize:30,fontWeight:FontWeight.w900,color:Color(0xff10213e))),
+              const SizedBox(height:8),
+              Text(isRegister?'Telefon numaran ve şifrenle müşteri hesabını oluştur.':'Telefon numaran ve şifrenle giriş yap.',textAlign:TextAlign.center,style:const TextStyle(color:Color(0xff718096),fontSize:14)),
+              const SizedBox(height:26),
+              Container(
+                padding:const EdgeInsets.all(4),
+                decoration:BoxDecoration(color:const Color(0xffeaf3fb),borderRadius:BorderRadius.circular(18)),
+                child:Row(children:[
+                  Expanded(child:_tab('Giriş Yap',!isRegister,()=>setState((){isRegister=false;error=null;}))),
+                  Expanded(child:_tab('Kayıt Ol',isRegister,()=>setState((){isRegister=true;error=null;}))),
+                ]),
+              ),
+              const SizedBox(height:22),
+              TextField(controller:phone,keyboardType:TextInputType.phone,decoration:fieldDecoration('Telefon Numarası').copyWith(prefixText:'+90  ',hintText:'5XX XXX XX XX')),
+              const SizedBox(height:14),
+              TextField(controller:password,obscureText:obscure,decoration:fieldDecoration('Şifre',suffix:IconButton(onPressed:()=>setState(()=>obscure=!obscure),icon:Icon(obscure?Icons.visibility_off_outlined:Icons.visibility_outlined)))),
+              if(isRegister)...[
+                const SizedBox(height:14),
+                TextField(controller:confirmPassword,obscureText:obscure2,decoration:fieldDecoration('Şifre Tekrar',suffix:IconButton(onPressed:()=>setState(()=>obscure2=!obscure2),icon:Icon(obscure2?Icons.visibility_off_outlined:Icons.visibility_outlined)))),
+              ],
+              if(error!=null)...[const SizedBox(height:12),Text(error!,textAlign:TextAlign.center,style:const TextStyle(color:Colors.red,fontWeight:FontWeight.w600))],
+              const SizedBox(height:18),
+              FilledButton(
+                onPressed:loading?null:submit,
+                style:FilledButton.styleFrom(backgroundColor:const Color(0xff168cf5),minimumSize:const Size.fromHeight(58),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20))),
+                child:loading?const SizedBox(width:22,height:22,child:CircularProgressIndicator(strokeWidth:2,color:Colors.white)):Text(isRegister?'Kayıt Ol':'Giriş Yap',style:const TextStyle(fontSize:17,fontWeight:FontWeight.w900)),
+              ),
+              const SizedBox(height:18),
+              const Text('Devam ederek Kullanım Koşulları ve Gizlilik Politikasını kabul etmiş olursun.',textAlign:TextAlign.center,style:TextStyle(color:Color(0xff94a3b8),fontSize:11)),
+            ]),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget _tab(String text,bool selected,VoidCallback onTap)=>InkWell(
+    onTap:onTap,
+    borderRadius:BorderRadius.circular(15),
+    child:Container(
+      padding:const EdgeInsets.symmetric(vertical:13),
+      decoration:BoxDecoration(color:selected?Colors.white:Colors.transparent,borderRadius:BorderRadius.circular(15),boxShadow:selected?const [BoxShadow(color:Color(0x12000000),blurRadius:8,offset:Offset(0,2))]:null),
+      child:Text(text,textAlign:TextAlign.center,style:TextStyle(color:selected?const Color(0xff168cf5):const Color(0xff718096),fontWeight:FontWeight.w800)),
+    ),
+  );
 }
