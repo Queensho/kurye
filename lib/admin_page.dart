@@ -72,22 +72,20 @@ class _AdminPageState extends State<AdminPage> {
 
   Future<void> _load() async {
     try {
-      final values = await Future.wait([
-        data.client.rpc('admin_dashboard_counts'),
-        data.client.rpc('admin_list_users'),
-        data.client.rpc('admin_list_couriers'),
-        data.client.rpc('admin_list_shipments'),
-        data.client.from('courier_documents').select().order('created_at', ascending: false),
-        data.client.from('promo_banners').select().order('sort_order').order('created_at', ascending: false),
-      ]);
+      final countsValue = await data.client.rpc('admin_dashboard_counts');
+      final usersValue = await data.client.rpc('admin_list_users');
+      final couriersValue = await data.client.rpc('admin_list_couriers');
+      final shipmentsValue = await data.client.rpc('admin_list_shipments');
+      final documentsValue = await data.client.from('courier_documents').select().order('created_at', ascending: false);
+      final promosValue = await data.client.from('promo_banners').select().order('sort_order').order('created_at', ascending: false);
       if (!mounted) return;
       setState(() {
-        counts = Map<String, dynamic>.from(values[0] as Map);
-        users = List<Map<String, dynamic>>.from(values[1] as List);
-        couriers = List<Map<String, dynamic>>.from(values[2] as List);
-        shipments = List<Map<String, dynamic>>.from(values[3] as List);
-        documents = List<Map<String, dynamic>>.from(values[4] as List);
-        promos = List<Map<String, dynamic>>.from(values[5] as List);
+        counts = Map<String, dynamic>.from(countsValue as Map);
+        users = List<Map<String, dynamic>>.from(usersValue as List);
+        couriers = List<Map<String, dynamic>>.from(couriersValue as List);
+        shipments = List<Map<String, dynamic>>.from(shipmentsValue as List);
+        documents = List<Map<String, dynamic>>.from(documentsValue);
+        promos = List<Map<String, dynamic>>.from(promosValue);
         loading = false;
       });
     } catch (e) {
