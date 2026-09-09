@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'admin_announcement_shortcut.dart';
 import 'admin_page.dart';
+import 'announcement_center_page.dart';
 import 'courier_earnings_page.dart';
 import 'courier_home_page.dart';
 import 'courier_job_pool_page.dart';
@@ -18,6 +20,7 @@ Future<void> main() async {
 class KuryeApp extends StatelessWidget {
   const KuryeApp({super.key});
   String get path => Uri.decodeComponent(Uri.base.path).toLowerCase();
+  bool get isAdminNotificationsPath => path.contains('/admin/bildirim') || path.contains('/admin/duyuru');
   bool get isAdminPath => path.contains('/admin');
   bool get isCustomerPath => path.contains('/müsteri')||path.contains('/müşteri')||path.contains('/musteri');
   bool get isJobPoolPath => path.contains('/havuz')||path.contains('/is-havuzu')||path.contains('/iş-havuzu');
@@ -26,12 +29,17 @@ class KuryeApp extends StatelessWidget {
 
   @override Widget build(BuildContext context){
     Widget home;
-    if(isAdminPath){home=const AdminPage();}
-    else if(isCustomerPath){ home=AppDataService.instance.isSignedIn?const HomePixelPreview():const CustomerPhoneAuthPage(); }
-    else if(isJobPoolPath){home=const CourierJobPoolPage();}
-    else if(isCourierEarningsPath){home=const CourierEarningsPage();}
-    else if(isCourierProfilePath){home=const CourierProfilePage();}
-    else{home=const CourierHomePage();}
+    if(isAdminNotificationsPath){home=const AdminAnnouncementPage();}
+    else if(isAdminPath){home=const AdminAnnouncementShortcut(child: AdminPage());}
+    else if(isCustomerPath){
+      home=AppDataService.instance.isSignedIn
+          ? const NotificationBellOverlay(audience:'customer',child:HomePixelPreview())
+          : const CustomerPhoneAuthPage();
+    }
+    else if(isJobPoolPath){home=const NotificationBellOverlay(audience:'courier',child:CourierJobPoolPage());}
+    else if(isCourierEarningsPath){home=const NotificationBellOverlay(audience:'courier',child:CourierEarningsPage());}
+    else if(isCourierProfilePath){home=const NotificationBellOverlay(audience:'courier',child:CourierProfilePage());}
+    else{home=const NotificationBellOverlay(audience:'courier',child:CourierHomePage());}
     return MaterialApp(
       debugShowCheckedModeBanner:false,
       title:isAdminPath?'Kurye Admin':isCustomerPath?'Kurye Müşteri':'Kurye',
