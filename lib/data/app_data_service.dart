@@ -22,9 +22,7 @@ class AppDataService {
 
   Future<void> signUpWithPhonePassword({required String phone, required String password}) async {
     final res = await client.auth.signUp(phone: phone, password: password);
-    if (res.session == null) {
-      throw StateError('Telefon doğrulaması açık. OTP kullanmadan kayıt için Supabase Phone doğrulamasını kapatmalısın.');
-    }
+    if (res.session == null) throw StateError('Telefon doğrulaması açık. OTP kullanmadan kayıt için Supabase Phone doğrulamasını kapatmalısın.');
     await ensureProfile();
     await client.from('profiles').update({'phone': phone, 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('id', userId);
   }
@@ -66,24 +64,16 @@ class AppDataService {
 
   Future<Map<String,dynamic>> setCourierOnline({required bool online,String vehicleType='motorcycle',double? latitude,double? longitude}) async => Map<String,dynamic>.from(await client.rpc('set_courier_online',params:{'p_online':online,'p_vehicle_type':vehicleType,'p_latitude':latitude,'p_longitude':longitude}) as Map);
   Future<void> updateCourierLocation(double latitude,double longitude) async => client.rpc('update_courier_location',params:{'p_latitude':latitude,'p_longitude':longitude});
+  Stream<Map<String,dynamic>> watchCourierLocation(String courierId) => client.from('couriers').stream(primaryKey:['user_id']).eq('user_id',courierId).map((rows)=>rows.isEmpty?<String,dynamic>{}:Map<String,dynamic>.from(rows.first));
   Stream<List<Map<String,dynamic>>> watchCourierPool() => client.from('shipments').stream(primaryKey:['id']).eq('status','searching').order('created_at',ascending:false).map((r)=>List<Map<String,dynamic>>.from(r.where((e)=>e['courier_id']==null)));
   Future<Map<String,dynamic>> claimShipment(String shipmentId) async { try { return Map<String,dynamic>.from(await client.rpc('claim_shipment',params:{'p_shipment_id':shipmentId}) as Map); } on PostgrestException catch(e) { if(e.message.contains('shipment_already_claimed_or_unavailable')) throw StateError('İş başka bir kurye tarafından alındı.'); if(e.message.contains('courier_already_has_active_job')) throw StateError('Zaten aktif bir işin var.'); if(e.message.contains('courier_offline')) throw StateError('İşi almak için online olmalısın.'); rethrow; } }
 
   Future<Map<String,dynamic>> updateShipmentStatus(String shipmentId, String status) async {
-    try {
-      return Map<String,dynamic>.from(await client.rpc('update_shipment_status', params:{'p_shipment_id':shipmentId,'p_status':status}) as Map);
-    } on PostgrestException catch(e) {
-      if (e.message.contains('invalid_status_transition')) throw StateError('Bu işlem sırası geçersiz.');
-      if (e.message.contains('shipment_not_assigned_to_courier')) throw StateError('Bu gönderi sana atanmış değil.');
-      rethrow;
-    }
+    try { return Map<String,dynamic>.from(await client.rpc('update_shipment_status', params:{'p_shipment_id':shipmentId,'p_status':status}) as Map); }
+    on PostgrestException catch(e) { if (e.message.contains('invalid_status_transition')) throw StateError('Bu işlem sırası geçersiz.'); if (e.message.contains('shipment_not_assigned_to_courier')) throw StateError('Bu gönderi sana atanmış değil.'); rethrow; }
   }
 
-  Stream<Map<String,dynamic>> watchShipment(String shipmentId) => client
-      .from('shipments')
-      .stream(primaryKey:['id'])
-      .eq('id', shipmentId)
-      .map((rows) => rows.isEmpty ? <String,dynamic>{} : Map<String,dynamic>.from(rows.first));
+  Stream<Map<String,dynamic>> watchShipment(String shipmentId) => client.from('shipments').stream(primaryKey:['id']).eq('id', shipmentId).map((rows) => rows.isEmpty ? <String,dynamic>{} : Map<String,dynamic>.from(rows.first));
 
   Future<List<Map<String,dynamic>>> getConversations() async => List<Map<String,dynamic>>.from(await client.from('conversations').select('*, shipments(public_code,pickup_address,dropoff_address)').eq('user_id',userId).order('updated_at',ascending:false));
   Future<List<Map<String,dynamic>>> getMessages(String conversationId) async => List<Map<String,dynamic>>.from(await client.from('messages').select().eq('conversation_id',conversationId).order('created_at'));
