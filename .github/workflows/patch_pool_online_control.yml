@@ -1,0 +1,69 @@
+name: Patch Pool Online Control
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch_pool_online_control.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove pool online switch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/courier_job_pool_page.dart')
+          s = p.read_text()
+          start = s.find('  Future<void> _setOnline(bool value) async {')
+          end = s.find('  List<Map<String, dynamic>> _applyFilter', start)
+          if start != -1 and end != -1:
+              s = s[:start] + s[end:]
+          old = """                Container(
+                  padding: const EdgeInsets.only(left: 10, right: 3),
+                  decoration: BoxDecoration(
+                    color: online ? const Color(0xFF1ED36F) : const Color(0xFF8CA0B2),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(online ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                      Switch(
+                        value: online,
+                        onChanged: statusLoading ? null : _setOnline,
+                        activeThumbColor: Colors.white,
+                        activeTrackColor: Colors.white24,
+                        inactiveThumbColor: Colors.white,
+                        inactiveTrackColor: Colors.white24,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ],
+                  ),
+                ),"""
+          new = """                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: online ? const Color(0xFF1ED36F) : const Color(0xFF8CA0B2),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Text(
+                    online ? 'Online' : 'Offline',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12),
+                  ),
+                ),"""
+          if old not in s:
+              raise SystemExit('online switch block not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/courier_job_pool_page.dart
+          git commit -m "Keep courier online control only on home" || exit 0
+          git push
