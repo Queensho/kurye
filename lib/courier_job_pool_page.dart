@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'courier_job_detail_sheet.dart';
+
 class CourierJobPoolPage extends StatefulWidget {
   const CourierJobPoolPage({super.key});
 
@@ -38,70 +40,60 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
     return Scaffold(
       backgroundColor: bg,
       body: SafeArea(
-        child: Column(
-          children: [
-            _header(),
-            _filters(),
-            Expanded(
-              child: mapMode
-                  ? _mapPlaceholder()
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-                      itemCount: visibleJobs.length,
-                      itemBuilder: (_, index) => _jobCard(visibleJobs[index]),
-                    ),
-            ),
-          ],
-        ),
+        child: Column(children: [
+          _header(),
+          _filters(),
+          Expanded(
+            child: mapMode
+                ? _mapPlaceholder()
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+                    itemCount: visibleJobs.length,
+                    itemBuilder: (_, index) => _jobCard(visibleJobs[index]),
+                  ),
+          ),
+        ]),
       ),
       bottomNavigationBar: _bottomNav(),
     );
   }
 
   Widget _header() => Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF269FFF), Color(0xFF168CF5)]),
-        ),
+        decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF269FFF), Color(0xFF168CF5)])),
         padding: const EdgeInsets.fromLTRB(18, 15, 18, 16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                IconButton(onPressed: () => Navigator.maybePop(context), icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white)),
-                const SizedBox(width: 3),
-                const Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('İş Havuzu', style: TextStyle(color: Colors.white, fontSize: 31, fontWeight: FontWeight.w900, height: 1)),
-                    SizedBox(height: 5),
-                    Text('Uygun işleri gör ve hemen al', style: TextStyle(color: Color(0xE8FFFFFF), fontSize: 13)),
-                  ]),
-                ),
-                Container(
-                  height: 48,
-                  padding: const EdgeInsets.only(left: 13, right: 5),
-                  decoration: BoxDecoration(color: online ? const Color(0xFF1ED36F) : const Color(0xFF8CA0B2), borderRadius: BorderRadius.circular(30)),
-                  child: Row(children: [
-                    Container(width: 18, height: 18, decoration: BoxDecoration(border: Border.all(color: Colors.white, width: 3), shape: BoxShape.circle)),
-                    const SizedBox(width: 8),
-                    Text(online ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
-                    const SizedBox(width: 5),
-                    Switch(value: online, onChanged: (v) => setState(() => online = v), activeThumbColor: Colors.white, activeTrackColor: Colors.white24, inactiveThumbColor: Colors.white, inactiveTrackColor: Colors.white24),
-                  ]),
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
+        child: Column(children: [
+          Row(children: [
+            IconButton(onPressed: () => Navigator.maybePop(context), icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white)),
+            const SizedBox(width: 3),
+            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('İş Havuzu', style: TextStyle(color: Colors.white, fontSize: 31, fontWeight: FontWeight.w900, height: 1)),
+              SizedBox(height: 5),
+              Text('Uygun işleri gör ve hemen al', style: TextStyle(color: Color(0xE8FFFFFF), fontSize: 13)),
+            ])),
             Container(
-              height: 54,
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: .9), borderRadius: BorderRadius.circular(28)),
+              height: 48,
+              padding: const EdgeInsets.only(left: 13, right: 5),
+              decoration: BoxDecoration(color: online ? const Color(0xFF1ED36F) : const Color(0xFF8CA0B2), borderRadius: BorderRadius.circular(30)),
               child: Row(children: [
-                Expanded(child: _modeButton(false, Icons.format_list_bulleted_rounded, 'Liste Görünümü')),
-                Expanded(child: _modeButton(true, Icons.map_outlined, 'Harita Görünümü')),
+                Container(width: 18, height: 18, decoration: BoxDecoration(border: Border.all(color: Colors.white, width: 3), shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Text(online ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+                const SizedBox(width: 5),
+                Switch(value: online, onChanged: (v) => setState(() => online = v), activeThumbColor: Colors.white, activeTrackColor: Colors.white24, inactiveThumbColor: Colors.white, inactiveTrackColor: Colors.white24),
               ]),
             ),
-          ],
-        ),
+          ]),
+          const SizedBox(height: 22),
+          Container(
+            height: 54,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .9), borderRadius: BorderRadius.circular(28)),
+            child: Row(children: [
+              Expanded(child: _modeButton(false, Icons.format_list_bulleted_rounded, 'Liste Görünümü')),
+              Expanded(child: _modeButton(true, Icons.map_outlined, 'Harita Görünümü')),
+            ]),
+          ),
+        ]),
       );
 
   Widget _modeButton(bool value, IconData icon, String text) {
@@ -110,11 +102,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
       onTap: () => setState(() => mapMode = value),
       borderRadius: BorderRadius.circular(24),
       child: Container(
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: selected ? const [BoxShadow(color: Color(0x15000000), blurRadius: 10, offset: Offset(0, 3))] : null,
-        ),
+        decoration: BoxDecoration(color: selected ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(24), boxShadow: selected ? const [BoxShadow(color: Color(0x15000000), blurRadius: 10, offset: Offset(0, 3))] : null),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(icon, color: selected ? blue : const Color(0xFF3F5D7D), size: 24),
           const SizedBox(width: 8),
@@ -158,15 +146,13 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(width: 54, height: 54, decoration: BoxDecoration(color: job.accent, shape: BoxShape.circle), child: Icon(job.icon, color: Colors.white, size: 27)),
             const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(job.company, style: const TextStyle(color: navy, fontSize: 18, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 5),
-                _addressRow(const Color(0xFF168CF5), Icons.circle, job.pickup),
-                const SizedBox(height: 5),
-                _addressRow(const Color(0xFFFF334D), Icons.location_on_rounded, job.dropoff),
-              ]),
-            ),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(job.company, style: const TextStyle(color: navy, fontSize: 18, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 5),
+              _addressRow(blue, Icons.circle, job.pickup),
+              const SizedBox(height: 5),
+              _addressRow(const Color(0xFFFF334D), Icons.location_on_rounded, job.dropoff),
+            ])),
             const SizedBox(width: 8),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), decoration: BoxDecoration(color: const Color(0xFFEAF4FF), borderRadius: BorderRadius.circular(14)), child: Text(job.age, style: const TextStyle(color: blue, fontSize: 10, fontWeight: FontWeight.w800))),
@@ -218,35 +204,34 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(color: const Color(0xFFE6EEF6), borderRadius: BorderRadius.circular(26)),
-          child: const Center(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              CircleAvatar(radius: 34, backgroundColor: Colors.white, child: Icon(Icons.map_rounded, color: blue, size: 34)),
-              SizedBox(height: 12),
-              Text('Harita Görünümü', style: TextStyle(color: navy, fontSize: 20, fontWeight: FontWeight.w900)),
-              SizedBox(height: 5),
-              Text('Havuzdaki işleri harita üzerinde görüntüle.', style: TextStyle(color: muted, fontSize: 12)),
-            ]),
-          ),
+          child: const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            CircleAvatar(radius: 34, backgroundColor: Colors.white, child: Icon(Icons.map_rounded, color: blue, size: 34)),
+            SizedBox(height: 12),
+            Text('Harita Görünümü', style: TextStyle(color: navy, fontSize: 20, fontWeight: FontWeight.w900)),
+            SizedBox(height: 5),
+            Text('Havuzdaki işleri harita üzerinde görüntüle.', style: TextStyle(color: muted, fontSize: 12)),
+          ])),
         ),
       );
 
   void _showDetails(_PoolJob job) {
-    showModalBottomSheet(
+    showCourierJobDetails(
       context: context,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(job.company, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: navy)),
-          const SizedBox(height: 14),
-          Text('Alım: ${job.pickup}', style: const TextStyle(color: navy, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          Text('Teslimat: ${job.dropoff}', style: const TextStyle(color: navy, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 14),
-          Text('Kazanç: ₺${job.earning}', style: const TextStyle(color: green, fontSize: 20, fontWeight: FontWeight.w900)),
-        ]),
-      ),
+      company: job.company,
+      pickup: job.pickup,
+      dropoff: job.dropoff,
+      pickupKm: job.pickupKm,
+      totalKm: job.totalKm,
+      duration: job.duration,
+      package: job.package,
+      packageType: job.packageType,
+      earning: job.earning,
+      age: job.age,
+      category: job.category,
+      icon: job.icon,
+      accent: job.accent,
+      online: online,
+      onTake: () => _takeJob(job),
     );
   }
 
@@ -274,23 +259,21 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x17000000), blurRadius: 20, offset: Offset(0, 7))]),
         child: Row(children: [
           for (int i = 0; i < items.length; i++)
-            Expanded(
-              child: InkWell(
-                onTap: () {
-                  if (i == 0) Navigator.maybePop(context);
-                  if (i == 2) setState(() => mapMode = true);
-                },
-                borderRadius: BorderRadius.circular(20),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(items[i].$1, color: i == 1 ? blue : const Color(0xFF78899E), size: 26),
-                    const SizedBox(height: 3),
-                    Text(items[i].$2, style: TextStyle(color: i == 1 ? blue : const Color(0xFF78899E), fontSize: 9.5, fontWeight: i == 1 ? FontWeight.w900 : FontWeight.w700)),
-                  ]),
-                ),
+            Expanded(child: InkWell(
+              onTap: () {
+                if (i == 0) Navigator.maybePop(context);
+                if (i == 2) setState(() => mapMode = true);
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(items[i].$1, color: i == 1 ? blue : const Color(0xFF78899E), size: 26),
+                  const SizedBox(height: 3),
+                  Text(items[i].$2, style: TextStyle(color: i == 1 ? blue : const Color(0xFF78899E), fontSize: 9.5, fontWeight: i == 1 ? FontWeight.w900 : FontWeight.w700)),
+                ]),
               ),
-            ),
+            )),
         ]),
       ),
     );
