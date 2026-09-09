@@ -21,7 +21,10 @@ class AppDataService {
 
   Future<void> initialize() async {
     await Supabase.initialize(url: supabaseUrl, anonKey: supabasePublishableKey);
-    if (isSignedIn) await ensureProfile();
+    if (isSignedIn) {
+      await ensureProfile();
+      await ensureAccountActive();
+    }
   }
 
   Future<void> signUpWithPhonePassword({required String phone, required String password}) async {
@@ -29,11 +32,29 @@ class AppDataService {
     if (res.session == null) throw StateError('Telefon doğrulaması açık. OTP kullanmadan kayıt için Supabase Phone doğrulamasını kapatmalısın.');
     await ensureProfile();
     await client.from('profiles').update({'phone': phone, 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('id', userId);
+    await ensureAccountActive();
   }
 
   Future<void> signInWithPhonePassword({required String phone, required String password}) async {
     await client.auth.signInWithPassword(phone: phone, password: password);
     await ensureProfile();
+    await ensureAccountActive();
+  }
+
+  Future<void> ensureAccountActive() async {
+    if (!isSignedIn) throw StateError('Kullanıcı oturumu hazır değil.');
+    try {
+      final value = await client.rpc('account_is_active', params: {'p_uid': userId});
+      if (value == true) return;
+      await signOut();
+      throw StateError('Bu hesap askıya alınmış. Destek ile iletişime geç.');
+    } on PostgrestException catch (e) {
+      if (e.message.contains('account_suspended')) {
+        await signOut();
+        throw StateError('Bu hesap askıya alınmış. Destek ile iletişime geç.');
+      }
+      rethrow;
+    }
   }
 
   Future<void> ensureProfile() async => client.from('profiles').upsert({'id': userId}, onConflict: 'id');
@@ -93,6 +114,7 @@ class AppDataService {
       return Map<String,dynamic>.from(value as Map);
     } on PostgrestException catch(e) {
       if (e.message.contains('pricing_rule_not_found')) throw StateError('Bu araç tipi için aktif fiyat kuralı bulunamadı.');
+      if (e.message.contains('account_suspended')) throw StateError('Bu hesap askıya alınmış.');
       rethrow;
     }
   }
@@ -100,9 +122,14 @@ class AppDataService {
   Stream<List<Map<String,dynamic>>> watchShipments() => client.from('shipments').stream(primaryKey:['id']).eq('user_id',userId).order('created_at',ascending:false).map((r)=>List<Map<String,dynamic>>.from(r));
 
   Future<Map<String,dynamic>> setCourierOnline({required bool online,String vehicleType='motorcycle',double? latitude,double? longitude}) async {
-    final result = Map<String,dynamic>.from(await client.rpc('set_courier_online',params:{'p_online':online,'p_vehicle_type':vehicleType,'p_latitude':latitude,'p_longitude':longitude}) as Map);
-    if (online) { unawaited(startCourierLocationTracking()); } else { await stopCourierLocationTracking(); }
-    return result;
+    try {
+      final result = Map<String,dynamic>.from(await client.rpc('set_courier_online',params:{'p_online':online,'p_vehicle_type':vehicleType,'p_latitude':latitude,'p_longitude':longitude}) as Map);
+      if (online) { unawaited(startCourierLocationTracking()); } else { await stopCourierLocationTracking(); }
+      return result;
+    } on PostgrestException catch (e) {
+      if (e.message.contains('account_suspended')) throw StateError('Bu hesap askıya alınmış.');
+      rethrow;
+    }
   }
 
   Future<void> startCourierLocationTracking() async {
@@ -124,18 +151,65 @@ class AppDataService {
   Future<void> updateCourierLocation(double latitude,double longitude) async => client.rpc('update_courier_location',params:{'p_latitude':latitude,'p_longitude':longitude});
   Stream<Map<String,dynamic>> watchCourierLocation(String courierId) => client.from('couriers').stream(primaryKey:['user_id']).eq('user_id',courierId).map((rows)=>rows.isEmpty?<String,dynamic>{}:Map<String,dynamic>.from(rows.first));
   Stream<List<Map<String,dynamic>>> watchCourierPool() => client.from('shipments').stream(primaryKey:['id']).eq('status','searching').order('created_at',ascending:false).map((r)=>List<Map<String,dynamic>>.from(r.where((e)=>e['courier_id']==null)));
-  Future<Map<String,dynamic>> claimShipment(String shipmentId) async { try { return Map<String,dynamic>.from(await client.rpc('claim_shipment',params:{'p_shipment_id':shipmentId}) as Map); } on PostgrestException catch(e) { if(e.message.contains('shipment_already_claimed_or_unavailable')) throw StateError('İş başka bir kurye tarafından alındı.'); if(e.message.contains('courier_already_has_active_job')) throw StateError('Zaten aktif bir işin var.'); if(e.message.contains('courier_offline')) throw StateError('İşi almak için online olmalısın.'); rethrow; } }
+  Future<Map<String,dynamic>> claimShipment(String shipmentId) async { try { return Map<String,dynamic>.from(await client.rpc('claim_shipment',params:{'p_shipment_id':shipmentId}) as Map); } on PostgrestException catch(e) { if(e.message.contains('shipment_already_claimed_or_unavailable')) throw StateError('İş başka bir kurye tarafından alındı.'); if(e.message.contains('courier_already_has_active_job')) throw StateError('Zaten aktif bir işin var.'); if(e.message.contains('courier_offline')) throw StateError('İşi almak için online olmalısın.'); if(e.message.contains('account_suspended')) throw StateError('Bu hesap askıya alınmış.'); rethrow; } }
 
   Future<Map<String,dynamic>> updateShipmentStatus(String shipmentId, String status) async {
     try { return Map<String,dynamic>.from(await client.rpc('update_shipment_status', params:{'p_shipment_id':shipmentId,'p_status':status}) as Map); }
-    on PostgrestException catch(e) { if (e.message.contains('invalid_status_transition')) throw StateError('Bu işlem sırası geçersiz.'); if (e.message.contains('shipment_not_assigned_to_courier')) throw StateError('Bu gönderi sana atanmış değil.'); rethrow; }
+    on PostgrestException catch(e) { if (e.message.contains('invalid_status_transition')) throw StateError('Bu işlem sırası geçersiz.'); if (e.message.contains('shipment_not_assigned_to_courier')) throw StateError('Bu gönderi sana atanmış değil.'); if(e.message.contains('account_suspended')) throw StateError('Bu hesap askıya alınmış.'); rethrow; }
   }
 
   Stream<Map<String,dynamic>> watchShipment(String shipmentId) => client.from('shipments').stream(primaryKey:['id']).eq('id', shipmentId).map((rows) => rows.isEmpty ? <String,dynamic>{} : Map<String,dynamic>.from(rows.first));
 
   Future<Map<String,dynamic>> getCourierEarningsSummary() async {
-    final value = await client.rpc('get_courier_earnings_summary');
-    return Map<String,dynamic>.from(value as Map);
+    try {
+      final value = await client.rpc('get_courier_earnings_summary');
+      return Map<String,dynamic>.from(value as Map);
+    } on PostgrestException catch (e) {
+      if(e.message.contains('account_suspended')) throw StateError('Bu hesap askıya alınmış.');
+      rethrow;
+    }
+  }
+
+  Future<Map<String,dynamic>?> getCourierBankAccount() async {
+    try {
+      final value = await client.rpc('get_courier_bank_account');
+      if (value == null) return null;
+      return Map<String,dynamic>.from(value as Map);
+    } on PostgrestException catch (e) {
+      if(e.message.contains('account_suspended')) throw StateError('Bu hesap askıya alınmış.');
+      rethrow;
+    }
+  }
+
+  Future<Map<String,dynamic>> saveCourierBankAccount({required String accountHolder,required String bankName,required String iban}) async {
+    try {
+      final value = await client.rpc('save_courier_bank_account',params:{
+        'p_account_holder':accountHolder,
+        'p_bank_name':bankName,
+        'p_iban':iban,
+      });
+      return Map<String,dynamic>.from(value as Map);
+    } on PostgrestException catch(e) {
+      if(e.message.contains('invalid_iban')) throw StateError('IBAN geçersiz. Türkiye IBANı TR ile başlamalı ve kontrol basamakları doğru olmalı.');
+      if(e.message.contains('invalid_account_holder')) throw StateError('Hesap sahibi adını kontrol et.');
+      if(e.message.contains('invalid_bank_name')) throw StateError('Banka adını kontrol et.');
+      if(e.message.contains('account_suspended')) throw StateError('Bu hesap askıya alınmış.');
+      rethrow;
+    }
+  }
+
+  Future<Map<String,dynamic>> requestCourierPayout(int amount) async {
+    try {
+      final value = await client.rpc('request_courier_payout',params:{'p_amount':amount});
+      return Map<String,dynamic>.from(value as Map);
+    } on PostgrestException catch(e) {
+      if(e.message.contains('bank_account_required')) throw StateError('Ödeme talebi için önce IBAN bilgilerini kaydet.');
+      if(e.message.contains('payout_already_pending')) throw StateError('Zaten bekleyen veya işlenen bir ödeme talebin var.');
+      if(e.message.contains('insufficient_balance')) throw StateError('Kullanılabilir bakiyen bu ödeme için yeterli değil.');
+      if(e.message.contains('courier_not_approved')) throw StateError('Ödeme talebi için kurye hesabın onaylı olmalı.');
+      if(e.message.contains('account_suspended')) throw StateError('Bu hesap askıya alınmış.');
+      rethrow;
+    }
   }
 
   Stream<List<Map<String,dynamic>>> watchCourierEarnings() => client
