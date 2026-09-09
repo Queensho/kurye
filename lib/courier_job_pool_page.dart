@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'courier_active_job_page.dart';
 import 'courier_job_detail_sheet.dart';
 
 class CourierJobPoolPage extends StatefulWidget {
@@ -13,7 +14,6 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
   static const blue = Color(0xFF168CF5);
   static const navy = Color(0xFF10213E);
   static const muted = Color(0xFF7B8797);
-  static const green = Color(0xFF20C875);
   static const bg = Color(0xFFF4F9FD);
 
   bool online = true;
@@ -21,11 +21,10 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
   int selectedFilter = 0;
 
   final jobs = const [
-    _PoolJob(company: 'Burger Yiyelim', pickup: 'Mecidiyeköy Mah. Büyükdere Cd. No:12', dropoff: 'Şişli, Osmanbey Mah. 19 Mayıs Cd. No:8', pickupKm: '1.2 km', totalKm: '3.8 km', duration: '18 dk', package: '1 paket', packageType: 'Yemek', earning: 125, age: '12 dk önce', category: 'Restoran', icon: Icons.restaurant_rounded, accent: Color(0xFFFF922D), light: Color(0xFFFFF2E6)),
-    _PoolJob(company: 'Migros', pickup: 'Fulya Mah. Abide-i Hürriyet Cd. No:154', dropoff: 'Şişli, Halide Edip Adıvar Mah. No:22', pickupKm: '0.8 km', totalKm: '4.1 km', duration: '22 dk', package: '3 paket', packageType: 'Market', earning: 98, age: '23 dk önce', category: 'Market', icon: Icons.shopping_cart_rounded, accent: Color(0xFF19C978), light: Color(0xFFE8FBF2)),
-    _PoolJob(company: 'Trendyol Express', pickup: 'Kağıthane, Axis AVM', dropoff: 'Beşiktaş, Levent Mah. Nispetiye Cd.', pickupKm: '2.4 km', totalKm: '6.7 km', duration: '28 dk', package: '1 paket', packageType: 'Kargo', earning: 135, age: '31 dk önce', category: 'Kargo', icon: Icons.inventory_2_rounded, accent: Color(0xFF7657F6), light: Color(0xFFF1EDFF)),
-    _PoolJob(company: 'Dürümcü Emmi', pickup: 'Gayrettepe Mah. Yıldız Posta Cd. No:7', dropoff: 'Zincirlikuyu Mah. Eski Büyükdere Cd. No:48', pickupKm: '1.9 km', totalKm: '5.2 km', duration: '24 dk', package: '2 paket', packageType: 'Yemek', earning: 110, age: '40 dk önce', category: 'Restoran', icon: Icons.restaurant_rounded, accent: Color(0xFFFF922D), light: Color(0xFFFFF2E6)),
-    _PoolJob(company: 'CarrefourSA', pickup: 'Fulya Mah. Ortaklar Cd. No:18', dropoff: 'Beşiktaş, Dikilitaş Mah. No:41', pickupKm: '2.1 km', totalKm: '5.9 km', duration: '26 dk', package: '2 paket', packageType: 'Market', earning: 90, age: '46 dk önce', category: 'Market', icon: Icons.shopping_basket_rounded, accent: Color(0xFF19C978), light: Color(0xFFE8FBF2)),
+    _PoolJob(company: 'Ahmet Yılmaz', pickup: 'Mecidiyeköy Mah. Büyükdere Cd. No:12', dropoff: 'Şişli, Osmanbey Mah. 19 Mayıs Cd. No:8', pickupKm: '1.2 km', totalKm: '3.8 km', duration: '18 dk', package: '1 adet', packageType: 'Evrak', earning: 125, age: '12 dk önce'),
+    _PoolJob(company: 'Selin Kaya', pickup: 'Fulya Mah. Abide-i Hürriyet Cd. No:154', dropoff: 'Beşiktaş, Dikilitaş Mah. No:22', pickupKm: '0.8 km', totalKm: '4.1 km', duration: '22 dk', package: '1 adet', packageType: 'Evrak', earning: 98, age: '23 dk önce'),
+    _PoolJob(company: 'Mert Aksoy', pickup: 'Kağıthane, Axis AVM', dropoff: 'Beşiktaş, Levent Mah. Nispetiye Cd.', pickupKm: '2.4 km', totalKm: '6.7 km', duration: '28 dk', package: '2 adet', packageType: 'Dosya', earning: 135, age: '31 dk önce'),
+    _PoolJob(company: 'Ece Demir', pickup: 'Gayrettepe Mah. Yıldız Posta Cd. No:7', dropoff: 'Zincirlikuyu Mah. Eski Büyükdere Cd. No:48', pickupKm: '1.9 km', totalKm: '5.2 km', duration: '24 dk', package: '1 adet', packageType: 'Evrak', earning: 110, age: '40 dk önce'),
   ];
 
   @override
@@ -144,7 +143,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 18, offset: Offset(0, 6))]),
         child: Column(children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(width: 54, height: 54, decoration: BoxDecoration(color: job.accent, shape: BoxShape.circle), child: Icon(job.icon, color: Colors.white, size: 27)),
+            const CircleAvatar(radius: 27, backgroundColor: Color(0xFFEAF4FF), child: Icon(Icons.description_outlined, color: blue, size: 27)),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(job.company, style: const TextStyle(color: navy, fontSize: 18, fontWeight: FontWeight.w900)),
@@ -158,7 +157,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
               Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), decoration: BoxDecoration(color: const Color(0xFFEAF4FF), borderRadius: BorderRadius.circular(14)), child: Text(job.age, style: const TextStyle(color: blue, fontSize: 10, fontWeight: FontWeight.w800))),
               const SizedBox(height: 4),
               Text('₺${job.earning}', style: const TextStyle(color: Color(0xFF05A65A), fontSize: 25, fontWeight: FontWeight.w900)),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: job.light, borderRadius: BorderRadius.circular(12)), child: Text(job.category, style: TextStyle(color: job.accent, fontSize: 9.5, fontWeight: FontWeight.w800))),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFEAF4FF), borderRadius: BorderRadius.circular(12)), child: Text(job.packageType, style: const TextStyle(color: blue, fontSize: 9.5, fontWeight: FontWeight.w800))),
             ]),
           ]),
           const SizedBox(height: 14),
@@ -169,7 +168,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
               _metric(Icons.location_on_rounded, job.pickupKm, 'Alımına'), _divider(),
               _metric(Icons.route_rounded, job.totalKm, 'Toplam'), _divider(),
               _metric(Icons.schedule_rounded, job.duration, 'Tahmini Süre'), _divider(),
-              _metric(Icons.inventory_2_outlined, job.package, job.packageType),
+              _metric(Icons.description_outlined, job.package, job.packageType),
             ]),
           ),
           const SizedBox(height: 12),
@@ -227,26 +226,25 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
       packageType: job.packageType,
       earning: job.earning,
       age: job.age,
-      category: job.category,
-      icon: job.icon,
-      accent: job.accent,
+      category: 'Evrak Teslimatı',
+      icon: Icons.description_outlined,
+      accent: blue,
       online: online,
       onTake: () => _takeJob(job),
     );
   }
 
   void _takeJob(_PoolJob job) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        icon: const CircleAvatar(radius: 26, backgroundColor: Color(0xFFE8FBF2), child: Icon(Icons.check_rounded, color: green, size: 30)),
-        title: const Text('İş Senin!', textAlign: TextAlign.center),
-        content: Text('${job.company} işi sana ayrıldı.\nAlım noktasına doğru yola çıkabilirsin.', textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [FilledButton(onPressed: () => Navigator.pop(context), style: FilledButton.styleFrom(backgroundColor: blue), child: const Text('Tamam'))],
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => CourierActiveJobPage(
+        pickup: job.pickup,
+        dropoff: job.dropoff,
+        pickupKm: job.pickupKm,
+        totalKm: job.totalKm,
+        duration: job.duration,
+        earning: job.earning,
       ),
-    );
+    ));
   }
 
   Widget _bottomNav() {
@@ -291,10 +289,17 @@ class _PoolJob {
   final String packageType;
   final int earning;
   final String age;
-  final String category;
-  final IconData icon;
-  final Color accent;
-  final Color light;
 
-  const _PoolJob({required this.company, required this.pickup, required this.dropoff, required this.pickupKm, required this.totalKm, required this.duration, required this.package, required this.packageType, required this.earning, required this.age, required this.category, required this.icon, required this.accent, required this.light});
+  const _PoolJob({
+    required this.company,
+    required this.pickup,
+    required this.dropoff,
+    required this.pickupKm,
+    required this.totalKm,
+    required this.duration,
+    required this.package,
+    required this.packageType,
+    required this.earning,
+    required this.age,
+  });
 }
