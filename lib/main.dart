@@ -9,6 +9,7 @@ import 'courier_job_pool_page.dart';
 import 'courier_profile_page.dart';
 import 'customer_phone_auth_page.dart';
 import 'data/app_data_service.dart';
+import 'fixed_notification_bell_overlay.dart';
 import 'home_pixel_preview.dart';
 
 Future<void> main() async {
@@ -33,13 +34,13 @@ class KuryeApp extends StatelessWidget {
     else if(isAdminPath){home=const AdminAnnouncementShortcut(child: AdminPage());}
     else if(isCustomerPath){
       home=AppDataService.instance.isSignedIn
-          ? const NotificationBellOverlay(audience:'customer',child:HomePixelPreview())
+          ? const FixedNotificationBellOverlay(audience:'customer',child:HomePixelPreview())
           : const CustomerPhoneAuthPage();
     }
-    else if(isJobPoolPath){home=const NotificationBellOverlay(audience:'courier',child:CourierJobPoolPage());}
-    else if(isCourierEarningsPath){home=const NotificationBellOverlay(audience:'courier',child:CourierEarningsPage());}
-    else if(isCourierProfilePath){home=const NotificationBellOverlay(audience:'courier',child:CourierProfilePage());}
-    else{home=const NotificationBellOverlay(audience:'courier',child:CourierHomePage());}
+    else if(isJobPoolPath){home=const FixedNotificationBellOverlay(audience:'courier',child:CourierJobPoolPage());}
+    else if(isCourierEarningsPath){home=const FixedNotificationBellOverlay(audience:'courier',child:CourierEarningsPage());}
+    else if(isCourierProfilePath){home=const FixedNotificationBellOverlay(audience:'courier',child:CourierProfilePage());}
+    else{home=const FixedNotificationBellOverlay(audience:'courier',child:CourierHomePage());}
     return MaterialApp(
       debugShowCheckedModeBanner:false,
       title:isAdminPath?'Kurye Admin':isCustomerPath?'Kurye Müşteri':'Kurye',
