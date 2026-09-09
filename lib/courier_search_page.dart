@@ -8,9 +8,9 @@ import 'customer_assigned_courier_page.dart';
 import 'data/app_data_service.dart';
 
 class CourierSearchPage extends StatefulWidget {
-  const CourierSearchPage({super.key, required this.shipmentId});
+  const CourierSearchPage({super.key, this.shipmentId});
 
-  final String shipmentId;
+  final String? shipmentId;
 
   @override
   State<CourierSearchPage> createState() => _CourierSearchPageState();
@@ -24,24 +24,63 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
   final data = AppDataService.instance;
   StreamSubscription<Map<String, dynamic>>? shipmentSub;
   Map<String, dynamic> shipment = {};
+  String? shipmentId;
   bool openingCourier = false;
+  bool loading = true;
+  String? error;
 
   @override
   void initState() {
     super.initState();
-    shipmentSub = data.watchShipment(widget.shipmentId).listen((row) {
+    _resolveShipment();
+  }
+
+  Future<void> _resolveShipment() async {
+    try {
+      shipmentId = widget.shipmentId;
+      if (shipmentId == null || shipmentId!.isEmpty) {
+        final rows = await data.client
+            .from('shipments')
+            .select()
+            .eq('user_id', data.userId)
+            .order('created_at', ascending: false)
+            .limit(1);
+        if (rows.isEmpty) throw StateError('Aktif gönderi bulunamadı.');
+        final latest = Map<String, dynamic>.from(rows.first);
+        shipmentId = latest['id']?.toString();
+        shipment = latest;
+      }
+      if (shipmentId == null || shipmentId!.isEmpty) throw StateError('Gönderi kimliği bulunamadı.');
+      if (!mounted) return;
+      setState(() => loading = false);
+      _listenShipment(shipmentId!);
+      _maybeOpenCourier(shipment);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        error = e.toString().replaceFirst('Bad state: ', '');
+      });
+    }
+  }
+
+  void _listenShipment(String id) {
+    shipmentSub = data.watchShipment(id).listen((row) {
       if (!mounted || row.isEmpty) return;
       setState(() => shipment = row);
-      final courierId = row['courier_id']?.toString();
-      if (!openingCourier && courierId != null && courierId.isNotEmpty) {
-        openingCourier = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => CustomerAssignedCourierPage(shipmentId: widget.shipmentId)),
-          );
-        });
-      }
+      _maybeOpenCourier(row);
+    });
+  }
+
+  void _maybeOpenCourier(Map<String, dynamic> row) {
+    final courierId = row['courier_id']?.toString();
+    if (openingCourier || courierId == null || courierId.isEmpty || shipmentId == null) return;
+    openingCourier = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => CustomerAssignedCourierPage(shipmentId: shipmentId!)),
+      );
     });
   }
 
@@ -55,10 +94,16 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (error != null) {
+      return Scaffold(appBar: AppBar(title: const Text('Kurye Aranıyor')), body: Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(error!))));
+    }
+
     final pickupLat = _num(shipment['pickup_lat']);
     final pickupLng = _num(shipment['pickup_lng']);
     final center = (pickupLat != null && pickupLng != null) ? LatLng(pickupLat, pickupLng) : const LatLng(41.0082, 28.9784);
-    final code = shipment['public_code']?.toString() ?? widget.shipmentId.substring(0, 8);
+    final id = shipmentId ?? '';
+    final code = shipment['public_code']?.toString() ?? (id.length >= 8 ? id.substring(0, 8) : id);
     final price = shipment['estimated_price'];
 
     return Scaffold(
