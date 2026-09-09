@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'courier_job_pool_page.dart';
 import 'courier_profile_page.dart';
+import 'data/app_data_service.dart';
 
 class CourierHomePage extends StatefulWidget {
   const CourierHomePage({super.key});
@@ -17,10 +18,68 @@ class _CourierHomePageState extends State<CourierHomePage> {
   static const green = Color(0xFF20D985);
   static const muted = Color(0xFF7B8797);
 
-  bool online = true;
+  final data = AppDataService.instance;
+  bool online = false;
+  bool statusBusy = true;
   int selectedTab = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadCourierStatus();
+  }
+
+  Future<void> _loadCourierStatus() async {
+    try {
+      if (!data.isSignedIn) {
+        if (mounted) setState(() { online = false; statusBusy = false; });
+        return;
+      }
+      final row = await data.client
+          .from('couriers')
+          .select('is_online')
+          .eq('user_id', data.userId)
+          .maybeSingle();
+      if (!mounted) return;
+      setState(() {
+        online = row?['is_online'] == true;
+        statusBusy = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() { online = false; statusBusy = false; });
+    }
+  }
+
+  Future<void> _setOnline(bool value) async {
+    if (statusBusy) return;
+    final previous = online;
+    setState(() {
+      online = value;
+      statusBusy = true;
+    });
+    try {
+      await data.setCourierOnline(online: value, vehicleType: 'motorcycle');
+      if (!mounted) return;
+      setState(() => statusBusy = false);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        online = previous;
+        statusBusy = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Durum güncellenemedi: $e')),
+      );
+    }
+  }
+
   void _openJobPool() {
+    if (!online || statusBusy) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İş havuzunu görmek için Online olmalısın.')),
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const CourierJobPoolPage()),
     );
@@ -110,7 +169,7 @@ class _CourierHomePageState extends State<CourierHomePage> {
                     const SizedBox(width: 7),
                     Switch(
                       value: online,
-                      onChanged: (v) => setState(() => online = v),
+                      onChanged: statusBusy ? null : _setOnline,
                       activeThumbColor: Colors.white,
                       activeTrackColor: Colors.white24,
                       inactiveThumbColor: Colors.white,
