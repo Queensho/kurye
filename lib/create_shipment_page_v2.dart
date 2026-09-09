@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'address_picker_page.dart';
 import 'courier_search_page.dart';
+import 'data/app_data_service.dart';
 
 class CreateShipmentPage extends StatefulWidget {
   const CreateShipmentPage({super.key});
@@ -21,13 +22,16 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
   static const muted = Color(0xFF7C879C);
   static const green = Color(0xFF19C983);
 
+  final data = AppDataService.instance;
   int vehicle = 0;
   int detail = 0;
   int payment = 0;
-  String selectedCard = 'Visa •••• 4242';
+  String? selectedCardId;
+  List<Map<String, dynamic>> cards = [];
   AddressSelection? pickup;
   AddressSelection? dropoff;
   bool calculatingRoute = false;
+  bool creatingShipment = false;
   double? routeDistanceKm;
   int? routeDurationMin;
   List<LatLng> routePoints = [];
@@ -38,11 +42,37 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
   bool get hasAddresses => pickup != null && dropoff != null;
   bool get routeReady => hasAddresses && !calculatingRoute && routeDistanceKm != null;
 
+  String get selectedCardLabel {
+    final card = cards.where((e) => e['id'].toString() == selectedCardId).cast<Map<String, dynamic>?>().firstOrNull;
+    if (card == null) return 'Kart seç';
+    return '${card['brand'] ?? 'Kart'} •••• ${card['last4'] ?? ''}';
+  }
+
   int get estimatedPrice {
     final distance = routeDistanceKm ?? 0;
     final base = vehicle == 0 ? 65.0 : 95.0;
     final perKm = vehicle == 0 ? 10.0 : 14.0;
     return (base + distance * perKm).round();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCards();
+  }
+
+  Future<void> _loadCards() async {
+    try {
+      final result = await data.getPaymentMethods();
+      if (!mounted) return;
+      setState(() {
+        cards = result.where((e) => e['type'] == 'card').toList();
+        if (selectedCardId == null && cards.isNotEmpty) {
+          final defaults = cards.where((e) => e['is_default'] == true).toList();
+          selectedCardId = (defaults.isNotEmpty ? defaults.first : cards.first)['id'].toString();
+        }
+      });
+    } catch (_) {}
   }
 
   @override
@@ -89,8 +119,8 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
       );
       final response = await http.get(uri);
       if (response.statusCode != 200) throw Exception('Rota servisi yanıt vermedi');
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final routes = data['routes'] as List<dynamic>?;
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      final routes = payload['routes'] as List<dynamic>?;
       if (routes == null || routes.isEmpty) throw Exception('Rota bulunamadı');
       final route = routes.first as Map<String, dynamic>;
       final geometry = route['geometry'] as Map<String, dynamic>;
@@ -222,35 +252,32 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
   }
 
   Future<void> _chooseCard() async {
+    await _loadCards();
+    if (!mounted) return;
+    if (cards.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Önce Profilim > Ödeme Yöntemleri bölümünden kart ekle.')));
+      return;
+    }
     final result = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (_) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const ListTile(title: Text('Online Ödeme Kartı', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: navy))),
-          for (final card in const ['Visa •••• 4242', 'Mastercard •••• 7812'])
-            ListTile(
-              leading: const Icon(Icons.credit_card_rounded, color: blue),
-              title: Text(card, style: const TextStyle(fontWeight: FontWeight.w800)),
-              trailing: selectedCard == card ? const Icon(Icons.check_circle_rounded, color: blue) : null,
-              onTap: () => Navigator.pop(context, card),
-            ),
-          ListTile(
-            leading: const Icon(Icons.add_card_rounded, color: blue),
-            title: const Text('Yeni kart ekle', style: TextStyle(fontWeight: FontWeight.w800, color: blue)),
-            onTap: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yeni kart ekleme profil ödeme yöntemlerinden yapılabilir.')));
-            },
-          ),
+          ...cards.map((card) => ListTile(
+                leading: const Icon(Icons.credit_card_rounded, color: blue),
+                title: Text('${card['brand'] ?? 'Kart'} •••• ${card['last4'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                trailing: selectedCardId == card['id'].toString() ? const Icon(Icons.check_circle_rounded, color: blue) : null,
+                onTap: () => Navigator.pop(context, card['id'].toString()),
+              )),
           const SizedBox(height: 10),
         ]),
       ),
     );
-    if (result != null && mounted) setState(() => selectedCard = result);
+    if (result != null && mounted) setState(() => selectedCardId = result);
   }
 
-  void _primaryAction() {
+  Future<void> _primaryAction() async {
     if (pickup == null) {
       _pickAddress(isPickup: true);
       return;
@@ -259,8 +286,41 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
       _pickAddress(isPickup: false);
       return;
     }
-    if (calculatingRoute) return;
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CourierSearchPage()));
+    if (calculatingRoute || creatingShipment) return;
+    if (payment == 1 && selectedCardId == null) {
+      await _chooseCard();
+      return;
+    }
+
+    setState(() => creatingShipment = true);
+    try {
+      const packageTypes = ['package', 'food', 'document', 'other'];
+      await data.createShipment(
+        vehicleType: vehicle == 0 ? 'motorcycle' : 'car',
+        packageType: packageTypes[detail],
+        pickupAddress: pickup!.displayName,
+        dropoffAddress: dropoff!.displayName,
+        pickupLat: pickup!.lat,
+        pickupLng: pickup!.lng,
+        dropoffLat: dropoff!.lat,
+        dropoffLng: dropoff!.lng,
+        weightLabel: selectedWeight,
+        sizeLabel: selectedSize,
+        note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+        distanceKm: routeDistanceKm,
+        durationMin: routeDurationMin,
+        estimatedPrice: estimatedPrice,
+        paymentType: payment == 0 ? 'cash' : 'online',
+        paymentMethodId: payment == 1 ? selectedCardId : null,
+      );
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CourierSearchPage()));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gönderi kaydedilemedi: $e')));
+    } finally {
+      if (mounted) setState(() => creatingShipment = false);
+    }
   }
 
   @override
@@ -354,9 +414,9 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
                 ]),
                 if (payment == 1) ...[
                   SizedBox(height: 10 * s),
-                  InkWell(onTap: _chooseCard, borderRadius: BorderRadius.circular(15 * s), child: Container(height: 56 * s, padding: EdgeInsets.symmetric(horizontal: 12 * s), decoration: BoxDecoration(color: const Color(0xFFF5FAFF), borderRadius: BorderRadius.circular(15 * s), border: Border.all(color: const Color(0xFFB9DAFF))), child: Row(children: [Icon(Icons.credit_card_rounded, color: blue, size: 21 * s), SizedBox(width: 10 * s), Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Kayıtlı Kart', style: TextStyle(fontSize: 9.5 * s, color: muted)), Text(selectedCard, style: TextStyle(fontSize: 11.5 * s, color: navy, fontWeight: FontWeight.w800))])), Icon(Icons.keyboard_arrow_down_rounded, color: blue)]))),
+                  InkWell(onTap: _chooseCard, borderRadius: BorderRadius.circular(15 * s), child: Container(height: 56 * s, padding: EdgeInsets.symmetric(horizontal: 12 * s), decoration: BoxDecoration(color: const Color(0xFFF5FAFF), borderRadius: BorderRadius.circular(15 * s), border: Border.all(color: const Color(0xFFB9DAFF))), child: Row(children: [Icon(Icons.credit_card_rounded, color: blue, size: 21 * s), SizedBox(width: 10 * s), Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Kayıtlı Kart', style: TextStyle(fontSize: 9.5 * s, color: muted)), Text(selectedCardLabel, style: TextStyle(fontSize: 11.5 * s, color: navy, fontWeight: FontWeight.w800))])), Icon(Icons.keyboard_arrow_down_rounded, color: blue)]))),
                   SizedBox(height: 8 * s),
-                  Text('Online ödeme, kurye eşleşmesi tamamlandığında provizyona alınır.', style: TextStyle(fontSize: 9.5 * s, color: muted)),
+                  Text('Kart bilgileri profilindeki kayıtlı ödeme yöntemlerinden alınır.', style: TextStyle(fontSize: 9.5 * s, color: muted)),
                 ],
               ])),
               SizedBox(height: 16 * s),
@@ -364,9 +424,9 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
                 width: double.infinity,
                 height: 58 * s,
                 child: ElevatedButton.icon(
-                  onPressed: calculatingRoute ? null : _primaryAction,
-                  icon: Icon(Icons.send_rounded, color: Colors.white, size: 22 * s),
-                  label: Text(!hasAddresses ? 'Adresleri Seç' : routeReady ? 'Gönderi Oluştur • ₺$estimatedPrice' : 'Gönderi Oluştur', style: TextStyle(fontSize: 17 * s, fontWeight: FontWeight.w800)),
+                  onPressed: calculatingRoute || creatingShipment ? null : _primaryAction,
+                  icon: creatingShipment ? SizedBox(width: 20 * s, height: 20 * s, child: const CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white)) : Icon(Icons.send_rounded, color: Colors.white, size: 22 * s),
+                  label: Text(creatingShipment ? 'Kaydediliyor...' : !hasAddresses ? 'Adresleri Seç' : routeReady ? 'Gönderi Oluştur • ₺$estimatedPrice' : 'Gönderi Oluştur', style: TextStyle(fontSize: 17 * s, fontWeight: FontWeight.w800)),
                   style: ElevatedButton.styleFrom(backgroundColor: blue, disabledBackgroundColor: const Color(0xFF8FC6F7), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20 * s)), elevation: 0),
                 ),
               ),
@@ -380,7 +440,10 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
   Widget _paymentOption(double s, int index, IconData icon, String title, String subtitle) {
     final selected = payment == index;
     return InkWell(
-      onTap: () => setState(() => payment = index),
+      onTap: () async {
+        setState(() => payment = index);
+        if (index == 1) await _loadCards();
+      },
       borderRadius: BorderRadius.circular(17 * s),
       child: Container(
         height: 82 * s,
