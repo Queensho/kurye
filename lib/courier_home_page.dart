@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'courier_job_pool_page.dart';
+
 class CourierHomePage extends StatefulWidget {
   const CourierHomePage({super.key});
 
@@ -16,6 +18,12 @@ class _CourierHomePageState extends State<CourierHomePage> {
 
   bool online = true;
   int selectedTab = 0;
+
+  void _openJobPool() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CourierJobPoolPage()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +181,7 @@ class _CourierHomePageState extends State<CourierHomePage> {
                   left: 0,
                   bottom: 6,
                   child: InkWell(
-                    onTap: () => setState(() => selectedTab = 1),
+                    onTap: _openJobPool,
                     borderRadius: BorderRadius.circular(30),
                     child: Container(
                       height: 56,
@@ -208,7 +216,7 @@ class _CourierHomePageState extends State<CourierHomePage> {
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 16, offset: Offset(0, 6))]),
         child: Row(
           children: [
-            Expanded(child: _quick(Icons.format_list_bulleted_rounded, 'İş Havuzu', 'Uygun işleri gör\nve hemen al', blue, () => setState(() => selectedTab = 1))),
+            Expanded(child: _quick(Icons.format_list_bulleted_rounded, 'İş Havuzu', 'Uygun işleri gör\nve hemen al', blue, _openJobPool)),
             const SizedBox(width: 10),
             Expanded(child: _quick(Icons.location_on_rounded, 'Harita', 'Bölgedeki işleri\nharitada gör', green, () => setState(() => selectedTab = 2))),
           ],
@@ -387,7 +395,13 @@ class _CourierHomePageState extends State<CourierHomePage> {
           for (int i = 0; i < items.length; i++)
             Expanded(
               child: InkWell(
-                onTap: () => setState(() => selectedTab = i),
+                onTap: () {
+                  if (i == 1) {
+                    _openJobPool();
+                  } else {
+                    setState(() => selectedTab = i);
+                  }
+                },
                 borderRadius: BorderRadius.circular(18),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 7),
