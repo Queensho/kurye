@@ -69,6 +69,22 @@ class AppDataService {
   Stream<List<Map<String,dynamic>>> watchCourierPool() => client.from('shipments').stream(primaryKey:['id']).eq('status','searching').order('created_at',ascending:false).map((r)=>List<Map<String,dynamic>>.from(r.where((e)=>e['courier_id']==null)));
   Future<Map<String,dynamic>> claimShipment(String shipmentId) async { try { return Map<String,dynamic>.from(await client.rpc('claim_shipment',params:{'p_shipment_id':shipmentId}) as Map); } on PostgrestException catch(e) { if(e.message.contains('shipment_already_claimed_or_unavailable')) throw StateError('İş başka bir kurye tarafından alındı.'); if(e.message.contains('courier_already_has_active_job')) throw StateError('Zaten aktif bir işin var.'); if(e.message.contains('courier_offline')) throw StateError('İşi almak için online olmalısın.'); rethrow; } }
 
+  Future<Map<String,dynamic>> updateShipmentStatus(String shipmentId, String status) async {
+    try {
+      return Map<String,dynamic>.from(await client.rpc('update_shipment_status', params:{'p_shipment_id':shipmentId,'p_status':status}) as Map);
+    } on PostgrestException catch(e) {
+      if (e.message.contains('invalid_status_transition')) throw StateError('Bu işlem sırası geçersiz.');
+      if (e.message.contains('shipment_not_assigned_to_courier')) throw StateError('Bu gönderi sana atanmış değil.');
+      rethrow;
+    }
+  }
+
+  Stream<Map<String,dynamic>> watchShipment(String shipmentId) => client
+      .from('shipments')
+      .stream(primaryKey:['id'])
+      .eq('id', shipmentId)
+      .map((rows) => rows.isEmpty ? <String,dynamic>{} : Map<String,dynamic>.from(rows.first));
+
   Future<List<Map<String,dynamic>>> getConversations() async => List<Map<String,dynamic>>.from(await client.from('conversations').select('*, shipments(public_code,pickup_address,dropoff_address)').eq('user_id',userId).order('updated_at',ascending:false));
   Future<List<Map<String,dynamic>>> getMessages(String conversationId) async => List<Map<String,dynamic>>.from(await client.from('messages').select().eq('conversation_id',conversationId).order('created_at'));
   Stream<List<Map<String,dynamic>>> watchMessages(String conversationId) => client.from('messages').stream(primaryKey:['id']).eq('conversation_id',conversationId).order('created_at').map((r)=>List<Map<String,dynamic>>.from(r));
