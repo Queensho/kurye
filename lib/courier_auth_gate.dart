@@ -19,6 +19,7 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
   StreamSubscription? authSub;
   bool checking = true;
   bool allowed = false;
+  bool pendingApproval = false;
   String? message;
 
   @override
@@ -39,6 +40,7 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
     setState(() {
       checking = true;
       message = null;
+      pendingApproval = false;
     });
 
     if (!data.isSignedIn) {
@@ -51,33 +53,38 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
     }
 
     try {
-      final courier = await data.client
-          .from('couriers')
-          .select('user_id,is_approved,is_online,vehicle_type')
-          .eq('user_id', data.userId)
-          .maybeSingle();
-      final profile = await data.client
-          .from('profiles')
-          .select('account_status')
-          .eq('id', data.userId)
-          .maybeSingle();
-
+      final value = await data.client.rpc('get_current_courier_account');
       if (!mounted) return;
-      if (profile?['account_status'] == 'suspended') {
-        await data.client.auth.signOut();
+
+      if (value == null) {
+        await data.signOut();
+        if (!mounted) return;
         setState(() {
           checking = false;
           allowed = false;
-          message = 'Bu kurye hesabı askıya alınmış.';
+          message = 'Bu oturum kurye hesabına ait değil. Kurye hesabınla giriş yap.';
         });
         return;
       }
 
-      if (courier == null) {
+      final courier = Map<String, dynamic>.from(value as Map);
+
+      if (courier['account_status'] == 'suspended') {
+        await data.signOut();
+        if (!mounted) return;
         setState(() {
           checking = false;
           allowed = false;
-          message = 'Açık oturum bir kurye hesabına ait değil. Kurye hesabınla giriş yap.';
+          message = 'Bu kurye hesabı askıya alınmış. Destek ile iletişime geç.';
+        });
+        return;
+      }
+
+      if (courier['is_approved'] != true) {
+        setState(() {
+          checking = false;
+          allowed = false;
+          pendingApproval = true;
         });
         return;
       }
@@ -85,15 +92,21 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
       setState(() {
         checking = false;
         allowed = true;
+        pendingApproval = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         checking = false;
         allowed = false;
-        message = 'Kurye hesabı doğrulanamadı: $e';
+        message = 'Kurye hesabı doğrulanamadı. Tekrar giriş yap.';
       });
     }
+  }
+
+  Future<void> _logout() async {
+    await data.signOut();
+    if (mounted) await _check();
   }
 
   @override
@@ -102,6 +115,56 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
       return const Scaffold(
         backgroundColor: Color(0xFFF4F8FC),
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (pendingApproval) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF4F8FC),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircleAvatar(
+                      radius: 44,
+                      backgroundColor: Color(0xFFE8F4FF),
+                      child: Icon(Icons.hourglass_top_rounded, size: 44, color: Color(0xFF168CF5)),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Kurye başvurun inceleniyor',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF10213E)),
+                    ),
+                    const SizedBox(height: 9),
+                    const Text(
+                      'Hesabın oluşturuldu. Admin onayından sonra online olabilir, iş havuzunu görebilir, konum paylaşabilir ve kazanç alanını kullanabilirsin.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFF74839A), height: 1.45),
+                    ),
+                    const SizedBox(height: 22),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: FilledButton.icon(
+                        onPressed: _check,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Onay Durumunu Yenile', style: TextStyle(fontWeight: FontWeight.w900)),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(onPressed: _logout, child: const Text('Çıkış Yap')),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       );
     }
 
