@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppDataService {
@@ -8,6 +11,7 @@ class AppDataService {
   static const supabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY', defaultValue: 'sb_publishable_eQFtGX0OZ7Dg-HG4iPVmmw_Hzr_wTjT');
   SupabaseClient get client => Supabase.instance.client;
   bool get isSignedIn => client.auth.currentSession != null;
+  StreamSubscription<Position>? _courierPositionSubscription;
 
   String get userId {
     final user = client.auth.currentUser;
@@ -62,7 +66,38 @@ class AppDataService {
   Future<List<Map<String,dynamic>>> getShipments() async => List<Map<String,dynamic>>.from(await client.from('shipments').select().eq('user_id',userId).order('created_at',ascending:false));
   Stream<List<Map<String,dynamic>>> watchShipments() => client.from('shipments').stream(primaryKey:['id']).eq('user_id',userId).order('created_at',ascending:false).map((r)=>List<Map<String,dynamic>>.from(r));
 
-  Future<Map<String,dynamic>> setCourierOnline({required bool online,String vehicleType='motorcycle',double? latitude,double? longitude}) async => Map<String,dynamic>.from(await client.rpc('set_courier_online',params:{'p_online':online,'p_vehicle_type':vehicleType,'p_latitude':latitude,'p_longitude':longitude}) as Map);
+  Future<Map<String,dynamic>> setCourierOnline({required bool online,String vehicleType='motorcycle',double? latitude,double? longitude}) async {
+    final result = Map<String,dynamic>.from(await client.rpc('set_courier_online',params:{'p_online':online,'p_vehicle_type':vehicleType,'p_latitude':latitude,'p_longitude':longitude}) as Map);
+    if (online) {
+      unawaited(startCourierLocationTracking());
+    } else {
+      await stopCourierLocationTracking();
+    }
+    return result;
+  }
+
+  Future<void> startCourierLocationTracking() async {
+    if (_courierPositionSubscription != null) return;
+    if (!await Geolocator.isLocationServiceEnabled()) return;
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+    try {
+      final first = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+      await updateCourierLocation(first.latitude, first.longitude);
+    } catch (_) {}
+    _courierPositionSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 15),
+    ).listen((position) async {
+      try { await updateCourierLocation(position.latitude, position.longitude); } catch (_) {}
+    });
+  }
+
+  Future<void> stopCourierLocationTracking() async {
+    await _courierPositionSubscription?.cancel();
+    _courierPositionSubscription = null;
+  }
+
   Future<void> updateCourierLocation(double latitude,double longitude) async => client.rpc('update_courier_location',params:{'p_latitude':latitude,'p_longitude':longitude});
   Stream<Map<String,dynamic>> watchCourierLocation(String courierId) => client.from('couriers').stream(primaryKey:['user_id']).eq('user_id',courierId).map((rows)=>rows.isEmpty?<String,dynamic>{}:Map<String,dynamic>.from(rows.first));
   Stream<List<Map<String,dynamic>>> watchCourierPool() => client.from('shipments').stream(primaryKey:['id']).eq('status','searching').order('created_at',ascending:false).map((r)=>List<Map<String,dynamic>>.from(r.where((e)=>e['courier_id']==null)));
@@ -79,7 +114,7 @@ class AppDataService {
   Future<List<Map<String,dynamic>>> getMessages(String conversationId) async => List<Map<String,dynamic>>.from(await client.from('messages').select().eq('conversation_id',conversationId).order('created_at'));
   Stream<List<Map<String,dynamic>>> watchMessages(String conversationId) => client.from('messages').stream(primaryKey:['id']).eq('conversation_id',conversationId).order('created_at').map((r)=>List<Map<String,dynamic>>.from(r));
   Future<void> sendMessage(String conversationId,String body) async { final text=body.trim(); if(text.isEmpty)return; await client.from('messages').insert({'conversation_id':conversationId,'sender_user_id':userId,'sender_role':'customer','body':text,'is_read':false}); }
-  Future<void> signOut() async => client.auth.signOut();
+  Future<void> signOut() async { await stopCourierLocationTracking(); await client.auth.signOut(); }
 }
 
 extension IterableFirstOrNullX<T> on Iterable<T> { T? get firstOrNull => isEmpty ? null : first; }
