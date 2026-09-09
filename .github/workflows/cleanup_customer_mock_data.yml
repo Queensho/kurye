@@ -1,0 +1,189 @@
+name: Cleanup Customer Mock Data
+
+on:
+  push:
+    paths:
+      - '.github/workflows/cleanup_customer_mock_data.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Replace customer mock data with realtime data
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          # --- Customer home: real default address + real latest shipment ---
+          p = Path('lib/home_pixel_preview.dart')
+          s = p.read_text()
+          if "import 'data/app_data_service.dart';" not in s:
+              s = s.replace("import 'promo_banner_widget.dart';\n", "import 'promo_banner_widget.dart';\nimport 'data/app_data_service.dart';\n")
+
+          old_location = """          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [Text('İstanbul', style: TextStyle(fontSize: 17 * fs, fontWeight: FontWeight.w800, color: deepBlue)), Icon(Icons.keyboard_arrow_down_rounded, size: 18 * fs, color: const Color(0xFF2A91DA))]),
+            Text('Şişli, Mecidiyeköy', style: TextStyle(fontSize: 11 * fs, color: const Color(0xFF245891))),
+          ]),"""
+          new_location = """          FutureBuilder<List<Map<String, dynamic>>>(
+            future: AppDataService.instance.getAddresses(),
+            builder: (context, snapshot) {
+              final addresses = snapshot.data ?? const <Map<String, dynamic>>[];
+              Map<String, dynamic>? selected;
+              if (addresses.isNotEmpty) {
+                selected = addresses.where((a) => a['is_default'] == true).firstOrNull ?? addresses.first;
+              }
+              final title = selected == null ? 'Konum seçilmedi' : (selected['label'] ?? 'Kayıtlı adres').toString();
+              final address = selected == null ? 'Profilimden adres ekleyebilirsin' : (selected['address_line'] ?? '').toString();
+              return SizedBox(
+                width: 205 * sx,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 17 * fs, fontWeight: FontWeight.w800, color: deepBlue))), Icon(Icons.keyboard_arrow_down_rounded, size: 18 * fs, color: const Color(0xFF2A91DA))]),
+                  Text(address, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11 * fs, color: const Color(0xFF245891))),
+                ]),
+              );
+            },
+          ),"""
+          if old_location in s:
+              s = s.replace(old_location, new_location, 1)
+
+          start = s.find('  Widget _recent(BuildContext context, double sx, double y, double fs) =>')
+          end = s.find('  Widget _nav(BuildContext context, double sx, double y, double fs) =>', start)
+          if start != -1 and end != -1:
+              recent = r'''  Widget _recent(BuildContext context, double sx, double y, double fs) => Column(children: [
+    Row(children: [
+      Expanded(child: Text('Son Gönderilerim', style: TextStyle(fontSize: 16 * fs, fontWeight: FontWeight.w900))),
+      InkWell(onTap: () => _openMyShipments(context), borderRadius: BorderRadius.circular(10 * sx), child: Padding(padding: EdgeInsets.symmetric(horizontal: 5 * sx, vertical: 4 * y), child: Row(children: [Text('Tümünü Gör', style: TextStyle(fontSize: 10 * fs, color: blue, fontWeight: FontWeight.w700)), Icon(Icons.chevron_right_rounded, size: 15 * fs, color: const Color(0xFF8C939B))]))),
+    ]),
+    SizedBox(height: 6 * y),
+    StreamBuilder<List<Map<String, dynamic>>>(
+      stream: AppDataService.instance.watchShipments(),
+      builder: (context, snapshot) {
+        final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+        if (snapshot.connectionState == ConnectionState.waiting && rows.isEmpty) {
+          return Container(height: 66 * y, alignment: Alignment.center, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * sx)), child: const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+        if (rows.isEmpty) {
+          return InkWell(onTap: () => _openCreateShipment(context), borderRadius: BorderRadius.circular(18 * sx), child: Container(height: 66 * y, padding: EdgeInsets.symmetric(horizontal: 14 * sx), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * sx)), child: Row(children: [Icon(Icons.inventory_2_outlined, color: blue, size: 27 * fs), SizedBox(width: 10 * sx), Expanded(child: Text('Henüz gönderin yok', style: TextStyle(fontSize: 12 * fs, color: muted, fontWeight: FontWeight.w700))), Icon(Icons.add_circle_outline_rounded, color: blue, size: 22 * fs)])));
+        }
+        final item = rows.first;
+        final status = (item['status'] ?? '').toString();
+        final code = (item['public_code'] ?? '').toString();
+        final pickup = (item['pickup_address'] ?? '').toString();
+        final dropoff = (item['dropoff_address'] ?? '').toString();
+        String shortAddress(String value) {
+          final parts = value.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          return parts.isEmpty ? '-' : parts.first;
+        }
+        final labels = <String, String>{'searching':'Kurye aranıyor','accepted':'Kurye geliyor','at_pickup':'Kurye alımda','picked_up':'Gönderin yolda','at_dropoff':'Teslimat noktasında','delivered':'Teslim edildi','cancelled':'İptal edildi'};
+        final completed = status == 'delivered';
+        final cancelled = status == 'cancelled';
+        final badgeColor = completed ? const Color(0xFF11843A) : cancelled ? const Color(0xFFD94A4A) : blue;
+        final badgeBg = completed ? const Color(0xFFDDF8E4) : cancelled ? const Color(0xFFFFE7E7) : const Color(0xFFEAF4FF);
+        final dt = DateTime.tryParse((item['created_at'] ?? '').toString())?.toLocal();
+        final date = dt == null ? '' : '${dt.day.toString().padLeft(2,'0')}.${dt.month.toString().padLeft(2,'0')} ${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}';
+        return InkWell(onTap: () => _openMyShipments(context), borderRadius: BorderRadius.circular(18 * sx), child: Container(height: 66 * y, padding: EdgeInsets.all(8 * sx), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * sx)), child: Row(children: [
+          CircleAvatar(radius: 24 * sx, backgroundColor: const Color(0xFFF7F4EF), child: Icon(Icons.inventory_2_rounded, size: 27 * fs, color: const Color(0xFFD69A50))), SizedBox(width: 8 * sx),
+          Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text(code.isEmpty ? 'Gönderi' : code, style: TextStyle(fontSize: 10 * fs, fontWeight: FontWeight.w700)), Text('${shortAddress(pickup)} → ${shortAddress(dropoff)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12 * fs, fontWeight: FontWeight.w800)), Text(labels[status] ?? 'Gönderi güncelleniyor', style: TextStyle(fontSize: 9 * fs, color: muted))])),
+          Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [Text(date, style: TextStyle(fontSize: 8 * fs, color: muted)), SizedBox(height: 6 * y), Container(padding: EdgeInsets.symmetric(horizontal: 7 * sx, vertical: 4 * y), decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(12 * sx)), child: Text(labels[status] ?? status, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 8 * fs, color: badgeColor, fontWeight: FontWeight.w700)))]),
+        ])));
+      },
+    ),
+  ]);
+
+'''
+              s = s[:start] + recent + s[end:]
+          p.write_text(s)
+
+          # --- Shipment creation: server price + real shipment id navigation ---
+          p = Path('lib/create_shipment_page_v2.dart')
+          s = p.read_text()
+          if 'int? serverEstimatedPrice;' not in s:
+              s = s.replace('  bool creatingShipment = false;\n', '  bool creatingShipment = false;\n  bool priceLoading = false;\n  int? serverEstimatedPrice;\n')
+          s = re.sub(r"  int get estimatedPrice \{.*?\n  \}", "  int get estimatedPrice => serverEstimatedPrice ?? 0;", s, count=1, flags=re.S)
+          s = s.replace('bool get routeReady => hasAddresses && !calculatingRoute && routeDistanceKm != null;', 'bool get routeReady => hasAddresses && !calculatingRoute && !priceLoading && routeDistanceKm != null && serverEstimatedPrice != null;')
+
+          marker = '  Future<void> _pickOption({required String title, required List<String> options, required bool weight}) async {'
+          if 'Future<void> _refreshServerPrice()' not in s and marker in s:
+              method = """  Future<void> _refreshServerPrice() async {
+    final distance = routeDistanceKm;
+    final pickupAddress = pickup?.displayName;
+    if (distance == null || pickupAddress == null) return;
+    setState(() { priceLoading = true; serverEstimatedPrice = null; });
+    try {
+      final quote = await data.calculateDeliveryPrice(
+        vehicleType: vehicle == 0 ? 'motorcycle' : 'car',
+        distanceKm: distance,
+        pickupAddress: pickupAddress,
+      );
+      final raw = quote['customer_total'];
+      final value = raw is num ? raw.toDouble() : double.tryParse('${raw ?? ''}');
+      if (!mounted) return;
+      setState(() => serverEstimatedPrice = value?.round());
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ücret hesaplanamadı: $e')));
+    } finally {
+      if (mounted) setState(() => priceLoading = false);
+    }
+  }
+
+"""
+              s = s.replace(marker, method + marker, 1)
+
+          # Refresh central quote after each route calculation.
+          old = """    } finally {
+      if (mounted) setState(() => calculatingRoute = false);
+    }
+  }
+
+  Future<void> _refreshServerPrice()"""
+          new = """    } finally {
+      if (mounted) setState(() => calculatingRoute = false);
+    }
+    await _refreshServerPrice();
+  }
+
+  Future<void> _refreshServerPrice()"""
+          if old in s:
+              s = s.replace(old, new, 1)
+
+          if "      await data.createShipment(\n" in s:
+              s = s.replace("      await data.createShipment(\n", "      if (serverEstimatedPrice == null) {\n        await _refreshServerPrice();\n        if (serverEstimatedPrice == null) throw StateError('Güncel ücret hesaplanamadı.');\n      }\n      final createdShipment = await data.createShipment(\n", 1)
+          s = s.replace("      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CourierSearchPage()));", "      final shipmentId = createdShipment['id']?.toString();\n      if (shipmentId == null || shipmentId.isEmpty) throw StateError('Gönderi kimliği alınamadı.');\n      Navigator.of(context).push(MaterialPageRoute(builder: (_) => CourierSearchPage(shipmentId: shipmentId)));", 1)
+
+          # Do not show a fake price while waiting for authoritative pricing.
+          s = s.replace("calculatingRoute ? _calculatingCard(s) : _priceCard(s)", "calculatingRoute || priceLoading || serverEstimatedPrice == null ? _calculatingCard(s) : _priceCard(s)")
+          p.write_text(s)
+
+          # Customer profile wording cleanup.
+          p = Path('lib/profile_page.dart')
+          s = p.read_text()
+          s = s.replace("const Center(child: Text('Kurye • v1.0.0'", "const Center(child: Text('Müşteri • v1.0.0'")
+          p.write_text(s)
+
+          # Remove obsolete fake customer flow files only if no live Dart file imports them.
+          obsolete = ['lib/courier_found_flow_page.dart','lib/courier_found_page.dart','lib/courier_found_page_v2.dart','lib/pickup_status_page.dart']
+          all_dart = '\n'.join(f.read_text(errors='ignore') for f in Path('lib').glob('*.dart') if str(f) not in obsolete)
+          for name in obsolete:
+              stem = Path(name).name
+              if stem not in all_dart:
+                  Path(name).unlink(missing_ok=True)
+          PY
+
+      - name: Verify no known customer mock strings remain
+        run: |
+          ! grep -R -n -E "#12458|Emre K\.|555 123 45 67|Şişli → Kadıköy|3 kurye yakınında|₺120 – 150" lib || (echo 'Known mock customer data still exists' && exit 1)
+
+      - name: Commit cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib
+          git commit -m "Remove customer mock data and wire real customer state" || exit 0
+          git push
