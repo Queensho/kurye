@@ -53,7 +53,6 @@ class HomePixelPreview extends StatelessWidget {
             Text('Şişli, Mecidiyeköy', style: TextStyle(fontSize: 11 * fs, color: const Color(0xFF245891))),
           ]),
         ])),
-        Positioned(right: 16 * sx, top: 17 * y, child: CircleAvatar(radius: 22 * sx, backgroundColor: Colors.white.withOpacity(.72), child: ClipOval(child: Image.asset('assets/images/kurye_hd.png', fit: BoxFit.cover)))),
         Positioned(right: 72 * sx, top: 38 * y, child: Opacity(opacity: .7, child: Icon(Icons.location_on_rounded, size: 112 * fs, color: Colors.white))),
         Positioned(left: 17 * sx, top: 73 * y, width: 172 * sx, height: 115 * y, child: Image.asset('assets/images/hero_text_hd.png', fit: BoxFit.contain, alignment: Alignment.centerLeft)),
         Positioned(left: 20 * sx, top: 183 * y, child: Text('İhtiyacın ne olursa olsun\nyanındayız.', style: TextStyle(fontSize: 12 * fs, height: 1.4, color: Colors.white, fontWeight: FontWeight.w500))),
