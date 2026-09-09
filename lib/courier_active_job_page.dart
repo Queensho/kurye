@@ -1,5 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class CourierActiveJobPage extends StatefulWidget {
@@ -29,10 +34,16 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
   static const navy = Color(0xFF10213E);
   static const muted = Color(0xFF718198);
   static const green = Color(0xFF10B866);
+  static const locationIqKey = String.fromEnvironment('LOCATIONIQ_API_KEY');
 
+  final MapController _mapController = MapController();
   int step = 0;
   Position? currentPosition;
+  LatLng? pickupPoint;
+  LatLng? dropoffPoint;
+  List<LatLng> routePoints = const [];
   bool locating = false;
+  bool mapLoading = true;
 
   String get actionLabel => switch (step) {
         0 => 'Alım Noktasına Git',
@@ -41,8 +52,82 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
         _ => 'Teslim Ettim',
       };
 
-  String get activeTarget => step >= 2 ? widget.dropoff : widget.pickup;
-  String get activeTargetTitle => step >= 2 ? 'Teslimat Adresi' : 'Alım Noktası';
+  bool get goingToDelivery => step >= 2;
+  String get activeTarget => goingToDelivery ? widget.dropoff : widget.pickup;
+  String get activeTargetTitle => goingToDelivery ? 'Teslimat Adresi' : 'Alım Noktası';
+  LatLng? get activeTargetPoint => goingToDelivery ? dropoffPoint : pickupPoint;
+
+  @override
+  void initState() {
+    super.initState();
+    _prepareMap();
+  }
+
+  Future<void> _prepareMap() async {
+    setState(() => mapLoading = true);
+    pickupPoint = await _geocode(widget.pickup);
+    dropoffPoint = await _geocode(widget.dropoff);
+    await _getCurrentLocation(showErrors: false);
+    await _refreshRoute();
+    if (mounted) setState(() => mapLoading = false);
+  }
+
+  Future<LatLng?> _geocode(String address) async {
+    if (locationIqKey.isEmpty) return null;
+    final query = '$address, İstanbul, Türkiye';
+    for (final host in ['eu1.locationiq.com', 'us1.locationiq.com']) {
+      try {
+        final uri = Uri.https(host, '/v1/search', {
+          'key': locationIqKey,
+          'q': query,
+          'format': 'json',
+          'limit': '1',
+          'countrycodes': 'tr',
+        });
+        final response = await http.get(uri).timeout(const Duration(seconds: 8));
+        if (response.statusCode != 200) continue;
+        final data = jsonDecode(response.body) as List<dynamic>;
+        if (data.isEmpty) continue;
+        final item = data.first as Map<String, dynamic>;
+        return LatLng(
+          double.parse(item['lat'].toString()),
+          double.parse(item['lon'].toString()),
+        );
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  Future<void> _refreshRoute() async {
+    final target = activeTargetPoint;
+    final pos = currentPosition;
+    if (target == null || pos == null) {
+      if (mounted) setState(() => routePoints = const []);
+      return;
+    }
+    try {
+      final uri = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/'
+        '${pos.longitude},${pos.latitude};${target.longitude},${target.latitude}'
+        '?overview=full&geometries=geojson&steps=false',
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) return;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final routes = data['routes'] as List<dynamic>?;
+      if (routes == null || routes.isEmpty) return;
+      final geometry = routes.first['geometry'] as Map<String, dynamic>;
+      final coordinates = geometry['coordinates'] as List<dynamic>;
+      final points = coordinates
+          .map((e) => LatLng(
+                (e as List<dynamic>)[1] as num,
+                e[0] as num,
+              ))
+          .map((p) => LatLng(p.latitude.toDouble(), p.longitude.toDouble()))
+          .toList();
+      if (mounted) setState(() => routePoints = points);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,25 +215,68 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
     ]);
   }
 
-  Widget _mapCard() => InkWell(
-        onTap: () => _showNavigationSheet(step >= 2),
+  Widget _mapCard() {
+    final target = activeTargetPoint;
+    final current = currentPosition == null ? null : LatLng(currentPosition!.latitude, currentPosition!.longitude);
+    final center = target ?? current ?? const LatLng(41.066, 28.995);
+
+    return Container(
+      height: 310,
+      decoration: BoxDecoration(color: const Color(0xFFEAF4F9), borderRadius: BorderRadius.circular(28), boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 18, offset: Offset(0, 6))]),
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
-        child: Container(
-          height: 310,
-          decoration: BoxDecoration(color: const Color(0xFFEAF4F9), borderRadius: BorderRadius.circular(28), boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 18, offset: Offset(0, 6))]),
-          child: Stack(children: [
-            Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(28), child: CustomPaint(painter: _MapPainter()))),
-            const Positioned(left: 26, top: 84, child: Text('Şişli', style: TextStyle(color: Color(0xFF60728B), fontSize: 21, fontWeight: FontWeight.w900))),
-            const Positioned(left: 185, top: 160, child: Text('Mecidiyeköy', style: TextStyle(color: Color(0xFF60728B), fontSize: 22, fontWeight: FontWeight.w900))),
-            Positioned(
-              right: 24,
-              top: 30,
-              left: 24,
+        child: Stack(children: [
+          Positioned.fill(
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(initialCenter: center, initialZoom: 14.3),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.queensho.kurye',
+                ),
+                if (routePoints.isNotEmpty)
+                  PolylineLayer(polylines: [
+                    Polyline(points: routePoints, strokeWidth: 6, color: blue, borderStrokeWidth: 3, borderColor: Colors.white),
+                  ]),
+                MarkerLayer(markers: [
+                  if (current != null)
+                    Marker(
+                      point: current,
+                      width: 54,
+                      height: 54,
+                      child: Container(
+                        decoration: BoxDecoration(color: blue.withValues(alpha: .20), shape: BoxShape.circle),
+                        alignment: Alignment.center,
+                        child: const CircleAvatar(radius: 17, backgroundColor: blue, child: Icon(Icons.my_location_rounded, color: Colors.white, size: 20)),
+                      ),
+                    ),
+                  if (target != null)
+                    Marker(
+                      point: target,
+                      width: 48,
+                      height: 48,
+                      child: CircleAvatar(
+                        backgroundColor: goingToDelivery ? const Color(0xFFFF4757) : blue,
+                        child: const Icon(Icons.location_on_rounded, color: Colors.white),
+                      ),
+                    ),
+                ]),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 18,
+            right: 18,
+            top: 16,
+            child: InkWell(
+              onTap: () => _showNavigationSheet(goingToDelivery),
+              borderRadius: BorderRadius.circular(20),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 12)]),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Color(0x16000000), blurRadius: 12)]),
                 child: Row(children: [
-                  Icon(Icons.location_on_rounded, color: step >= 2 ? const Color(0xFFFF4757) : blue),
+                  Icon(Icons.location_on_rounded, color: goingToDelivery ? const Color(0xFFFF4757) : blue),
                   const SizedBox(width: 8),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(activeTargetTitle, style: const TextStyle(color: navy, fontWeight: FontWeight.w900)),
@@ -159,15 +287,27 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
                 ]),
               ),
             ),
-            Positioned(
-              left: 145,
-              top: 136,
-              child: CircleAvatar(radius: 25, backgroundColor: blue.withValues(alpha: .18), child: const CircleAvatar(radius: 17, backgroundColor: blue, child: Icon(Icons.my_location_rounded, color: Colors.white, size: 20))),
+          ),
+          if (mapLoading)
+            const Positioned.fill(child: ColoredBox(color: Color(0x66FFFFFF), child: Center(child: CircularProgressIndicator()))),
+          Positioned(
+            right: 18,
+            bottom: 18,
+            child: FloatingActionButton.small(
+              heroTag: 'recenter',
+              backgroundColor: Colors.white,
+              foregroundColor: blue,
+              onPressed: () {
+                final p = currentPosition;
+                if (p != null) _mapController.move(LatLng(p.latitude, p.longitude), 15);
+              },
+              child: const Icon(Icons.my_location_rounded),
             ),
-            Positioned(right: 18, bottom: 18, child: CircleAvatar(radius: 26, backgroundColor: Colors.white, child: IconButton(onPressed: () => _showNavigationSheet(step >= 2), icon: const Icon(Icons.navigation_rounded, color: blue)))),
-          ]),
-        ),
-      );
+          ),
+        ]),
+      ),
+    );
+  }
 
   Widget _shipmentCard() => Container(
         padding: const EdgeInsets.all(18),
@@ -252,6 +392,8 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
     }
     if (step == 1) {
       setState(() => step = 2);
+      await _refreshRoute();
+      _fitActiveRoute();
       return;
     }
     if (step == 2) {
@@ -261,26 +403,26 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
     _completeJob();
   }
 
-  Future<Position?> _getCurrentLocation() async {
+  Future<Position?> _getCurrentLocation({bool showErrors = true}) async {
     if (locating) return currentPosition;
-    setState(() => locating = true);
+    if (mounted) setState(() => locating = true);
     try {
       final enabled = await Geolocator.isLocationServiceEnabled();
       if (!enabled) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum servisini açman gerekiyor.')));
+        if (showErrors && mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum servisini açman gerekiyor.')));
         return null;
       }
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum izni verilmedi.')));
+        if (showErrors && mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum izni verilmedi.')));
         return null;
       }
       final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       if (mounted) setState(() => currentPosition = pos);
       return pos;
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum alınamadı.')));
+      if (showErrors && mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum alınamadı.')));
       return null;
     } finally {
       if (mounted) setState(() => locating = false);
@@ -289,19 +431,31 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
 
   Future<void> _openNavigation(String destination) async {
     final pos = currentPosition ?? await _getCurrentLocation();
-    final encoded = Uri.encodeComponent(destination);
+    final target = activeTargetPoint;
+    final destinationValue = target == null ? Uri.encodeComponent(destination) : '${target.latitude},${target.longitude}';
     final origin = pos == null ? '' : '&origin=${pos.latitude},${pos.longitude}';
-    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$encoded$origin&travelmode=driving');
+    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$destinationValue$origin&travelmode=driving');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Navigasyon açılamadı.')));
     }
   }
 
+  void _fitActiveRoute() {
+    final target = activeTargetPoint;
+    final pos = currentPosition;
+    if (target == null || pos == null) return;
+    final bounds = LatLngBounds.fromPoints([LatLng(pos.latitude, pos.longitude), target]);
+    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(70)));
+  }
+
   Future<void> _showNavigationSheet(bool delivery) async {
     final address = delivery ? widget.dropoff : widget.pickup;
     final title = delivery ? 'Teslimat Adresi' : 'Alım Noktası';
+    final target = delivery ? dropoffPoint : pickupPoint;
     await _getCurrentLocation();
     if (!mounted) return;
+    await _refreshRoute();
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -309,44 +463,69 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
       builder: (sheetContext) => SafeArea(
         top: false,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .82),
           decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: Container(width: 58, height: 5, decoration: BoxDecoration(color: const Color(0xFFD1D9E3), borderRadius: BorderRadius.circular(10)))),
-            const SizedBox(height: 18),
-            Row(children: [
-              CircleAvatar(radius: 25, backgroundColor: (delivery ? const Color(0xFFFF4757) : blue).withValues(alpha: .10), child: Icon(Icons.location_on_rounded, color: delivery ? const Color(0xFFFF4757) : blue)),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(color: navy, fontSize: 20, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(address, style: const TextStyle(color: muted, fontSize: 13, height: 1.35))])),
-            ]),
-            const SizedBox(height: 18),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: const Color(0xFFF1F8FF), borderRadius: BorderRadius.circular(18)),
+          child: Column(children: [
+            const SizedBox(height: 10),
+            Container(width: 60, height: 5, decoration: BoxDecoration(color: const Color(0xFFD4DCE5), borderRadius: BorderRadius.circular(8))),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
               child: Row(children: [
-                const Icon(Icons.my_location_rounded, color: blue),
-                const SizedBox(width: 10),
-                Expanded(child: Text(currentPosition == null ? 'Mevcut konum alınamadı' : 'Konumun hazır • GPS aktif', style: const TextStyle(color: navy, fontWeight: FontWeight.w800))),
-                if (locating) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                CircleAvatar(radius: 23, backgroundColor: const Color(0xFFEAF5FF), child: Icon(Icons.location_on_rounded, color: delivery ? const Color(0xFFFF4757) : blue)),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: const TextStyle(color: navy, fontSize: 21, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 4),
+                  Text(address, style: const TextStyle(color: muted, fontSize: 12.5)),
+                ])),
               ]),
             ),
-            const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: () => _openNavigation(address),
-              icon: const Icon(Icons.navigation_rounded),
-              label: const Text('Navigasyonu Başlat'),
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58), backgroundColor: blue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)), textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: FlutterMap(
+                    options: MapOptions(initialCenter: target ?? const LatLng(41.066, 28.995), initialZoom: 14.5),
+                    children: [
+                      TileLayer(urlTemplate: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', userAgentPackageName: 'com.queensho.kurye'),
+                      if (routePoints.isNotEmpty)
+                        PolylineLayer(polylines: [Polyline(points: routePoints, strokeWidth: 6, color: blue, borderStrokeWidth: 3, borderColor: Colors.white)]),
+                      MarkerLayer(markers: [
+                        if (currentPosition != null)
+                          Marker(point: LatLng(currentPosition!.latitude, currentPosition!.longitude), width: 50, height: 50, child: const CircleAvatar(backgroundColor: blue, child: Icon(Icons.my_location_rounded, color: Colors.white))),
+                        if (target != null)
+                          Marker(point: target, width: 50, height: 50, child: CircleAvatar(backgroundColor: delivery ? const Color(0xFFFF4757) : blue, child: const Icon(Icons.location_on_rounded, color: Colors.white))),
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(sheetContext);
-                setState(() => step = delivery ? 3 : 1);
-              },
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              label: Text(delivery ? 'Teslimat Noktasına Vardım' : 'Alım Noktasına Vardım'),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(54), foregroundColor: navy, side: const BorderSide(color: Color(0xFFC9DBEC)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(27)), textStyle: const TextStyle(fontWeight: FontWeight.w900)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+              child: Column(children: [
+                FilledButton.icon(
+                  onPressed: () => _openNavigation(address),
+                  icon: const Icon(Icons.navigation_rounded),
+                  label: const Text('Navigasyonu Başlat'),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56), backgroundColor: blue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)), textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    if (delivery) {
+                      setState(() => step = 3);
+                    } else {
+                      setState(() => step = 1);
+                    }
+                  },
+                  icon: const Icon(Icons.check_rounded),
+                  label: Text(delivery ? 'Teslimat Noktasına Vardım' : 'Alım Noktasına Vardım'),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54), backgroundColor: green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(27)), textStyle: const TextStyle(fontWeight: FontWeight.w900)),
+                ),
+              ]),
             ),
           ]),
         ),
@@ -381,23 +560,4 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
       ),
     );
   }
-}
-
-class _MapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final road = Paint()..color = Colors.white..strokeWidth = 3;
-    for (double y = 25; y < size.height; y += 55) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y + 28), road);
-    }
-    for (double x = 10; x < size.width; x += 85) {
-      canvas.drawLine(Offset(x, 0), Offset(x + 55, size.height), road);
-    }
-    final route = Path()..moveTo(size.width * .42, size.height * .56)..cubicTo(size.width * .55, size.height * .40, size.width * .63, size.height * .70, size.width * .78, size.height * .28);
-    canvas.drawPath(route, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 10..strokeCap = StrokeCap.round);
-    canvas.drawPath(route, Paint()..color = const Color(0xFF168CF5)..style = PaintingStyle.stroke..strokeWidth = 6..strokeCap = StrokeCap.round);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
