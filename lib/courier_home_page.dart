@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'courier_job_pool_page.dart';
+import 'courier_profile_page.dart';
 
 class CourierHomePage extends StatefulWidget {
   const CourierHomePage({super.key});
@@ -22,6 +23,12 @@ class _CourierHomePageState extends State<CourierHomePage> {
   void _openJobPool() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const CourierJobPoolPage()),
+    );
+  }
+
+  void _openProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CourierProfilePage()),
     );
   }
 
@@ -398,6 +405,8 @@ class _CourierHomePageState extends State<CourierHomePage> {
                 onTap: () {
                   if (i == 1) {
                     _openJobPool();
+                  } else if (i == 3) {
+                    _openProfile();
                   } else {
                     setState(() => selectedTab = i);
                   }
