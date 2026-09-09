@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Patch create shipment navigation
         run: |
+          echo "Applying realtime assignment patch"
           python3 - <<'PY'
           from pathlib import Path
           p = Path('lib/create_shipment_page_v2.dart')
