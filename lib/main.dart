@@ -51,8 +51,33 @@ class KuryeApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF7FBFF),
+        visualDensity: VisualDensity.compact,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF168CF5)),
       ),
+      builder: (context, child) {
+        if (child == null || isCustomerPath) return child ?? const SizedBox.shrink();
+
+        final mq = MediaQuery.of(context);
+        final width = mq.size.width;
+
+        // Kurye tarafındaki tüm ekranlarda aynı responsive ölçeği kullan.
+        // 360px ve altı telefonlarda taşmayı önlemek için yazılar kontrollü küçülür,
+        // 390-430px aralığında referans tasarım oranı korunur.
+        final scale = (width / 430).clamp(0.84, 1.0);
+
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: TextScaler.linear(scale),
+          ),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: child,
+            ),
+          ),
+        );
+      },
       home: home,
     );
   }
