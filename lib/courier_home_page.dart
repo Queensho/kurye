@@ -120,28 +120,6 @@ class _CourierHomePageState extends State<CourierHomePage> {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const CircleAvatar(
-                    radius: 21,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.person_rounded, color: blue, size: 28),
-                  ),
-                  Positioned(
-                    right: -2,
-                    top: -4,
-                    child: Container(
-                      width: 17,
-                      height: 17,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-                      child: const Text('3', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
           const SizedBox(height: 15),
