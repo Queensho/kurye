@@ -25,7 +25,7 @@ class _AdminPageState extends State<AdminPage> {
   List<Map<String, dynamic>> documents = const [];
   List<Map<String, dynamic>> promos = const [];
 
-  final phone = TextEditingController();
+  final email = TextEditingController(text: 'admin@kurye.app');
   final password = TextEditingController();
 
   @override
@@ -34,11 +34,11 @@ class _AdminPageState extends State<AdminPage> {
     _check();
   }
 
-  String _phone() {
-    var v = phone.text.replaceAll(RegExp(r'\D'), '');
-    if (v.startsWith('0')) v = v.substring(1);
-    if (v.startsWith('90')) return '+$v';
-    return '+90$v';
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    super.dispose();
   }
 
   Future<void> _check() async {
@@ -61,12 +61,17 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   Future<void> _login() async {
+    final mail = email.text.trim();
+    if (mail.isEmpty || password.text.isEmpty) {
+      setState(() { error = 'E-posta ve şifreyi gir.'; });
+      return;
+    }
     setState(() { loading = true; error = null; });
     try {
-      await data.signInWithPhonePassword(phone: _phone(), password: password.text);
+      await data.client.auth.signInWithPassword(email: mail, password: password.text);
       await _check();
     } catch (e) {
-      setState(() { loading = false; error = 'Giriş yapılamadı: $e'; });
+      setState(() { loading = false; error = 'Giriş yapılamadı: E-posta veya şifre hatalı.'; });
     }
   }
 
@@ -209,9 +214,9 @@ class _AdminPageState extends State<AdminPage> {
         const SizedBox(height: 14),
         const Text('Admin Girişi', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: navy)),
         const SizedBox(height: 20),
-        TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Telefon', prefixText: '+90 ', border: OutlineInputBorder())),
+        TextField(controller: email, keyboardType: TextInputType.emailAddress, autocorrect: false, decoration: const InputDecoration(labelText: 'E-posta', hintText: 'admin@kurye.app', prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder())),
         const SizedBox(height: 12),
-        TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: 'Şifre', border: OutlineInputBorder())),
+        TextField(controller: password, obscureText: true, onSubmitted: (_) => _login(), decoration: const InputDecoration(labelText: 'Şifre', prefixIcon: Icon(Icons.lock_outline), border: OutlineInputBorder())),
         if (error != null) ...[const SizedBox(height: 10), Text(error!, style: const TextStyle(color: Colors.red))],
         const SizedBox(height: 14),
         FilledButton(onPressed: _login, child: const Text('Giriş Yap')),
