@@ -120,6 +120,7 @@ class _CourierHomePageState extends State<CourierHomePage> {
                   ],
                 ),
               ),
+              const SizedBox(width: 58),
             ],
           ),
           const SizedBox(height: 15),
