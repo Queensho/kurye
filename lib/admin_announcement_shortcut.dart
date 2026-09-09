@@ -4,6 +4,7 @@ import 'admin_management_page.dart';
 import 'admin_payouts_page.dart';
 import 'announcement_center_page.dart';
 import 'pricing_engine_admin_page.dart';
+import 'service_region_map_admin_page.dart';
 
 class AdminAnnouncementShortcut extends StatelessWidget {
   const AdminAnnouncementShortcut({super.key, required this.child});
@@ -24,6 +25,15 @@ class AdminAnnouncementShortcut extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
+                FloatingActionButton.extended(
+                  heroTag: 'admin-zones-shortcut',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ServiceRegionMapAdminPage()),
+                  ),
+                  icon: const Icon(Icons.polyline_rounded),
+                  label: const Text('Bölge Haritası', style: TextStyle(fontWeight: FontWeight.w900)),
+                ),
+                const SizedBox(height: 10),
                 FloatingActionButton.extended(
                   heroTag: 'admin-payouts-shortcut',
                   onPressed: () => Navigator.of(context).push(
