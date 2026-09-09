@@ -24,7 +24,7 @@ Future<void> showCourierJobDetails({
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0xA910213E),
     builder: (sheetContext) => _CourierJobDetailSheet(
-      company: company,
+      customerName: company,
       pickup: pickup,
       dropoff: dropoff,
       pickupKm: pickupKm,
@@ -52,7 +52,7 @@ class _CourierJobDetailSheet extends StatelessWidget {
   static const green = Color(0xFF0AAE60);
   static const muted = Color(0xFF6E7F93);
 
-  final String company;
+  final String customerName;
   final String pickup;
   final String dropoff;
   final String pickupKm;
@@ -69,7 +69,7 @@ class _CourierJobDetailSheet extends StatelessWidget {
   final VoidCallback onTake;
 
   const _CourierJobDetailSheet({
-    required this.company,
+    required this.customerName,
     required this.pickup,
     required this.dropoff,
     required this.pickupKm,
@@ -115,13 +115,13 @@ class _CourierJobDetailSheet extends StatelessWidget {
                   ]),
                   const SizedBox(height: 16),
                   Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                    Container(width: 68, height: 68, decoration: BoxDecoration(color: accent, shape: BoxShape.circle), child: Icon(icon, color: Colors.white, size: 34)),
+                    Container(width: 68, height: 68, decoration: BoxDecoration(color: accent, shape: BoxShape.circle), child: const Icon(Icons.description_rounded, color: Colors.white, size: 34)),
                     const SizedBox(width: 14),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(company, style: const TextStyle(color: navy, fontSize: 22, fontWeight: FontWeight.w900)),
+                      Text(customerName, style: const TextStyle(color: navy, fontSize: 22, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 5),
                       Row(children: [
-                        Text('$category · $packageType', style: const TextStyle(color: muted, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                        Text('Evrak · $packageType', style: const TextStyle(color: muted, fontSize: 12.5, fontWeight: FontWeight.w600)),
                         const SizedBox(width: 8),
                         Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), decoration: BoxDecoration(color: const Color(0xFFEAF4FF), borderRadius: BorderRadius.circular(14)), child: Text(age, style: const TextStyle(color: blue, fontSize: 10, fontWeight: FontWeight.w800))),
                       ]),
@@ -145,17 +145,17 @@ class _CourierJobDetailSheet extends StatelessWidget {
                     const SizedBox(width: 9),
                     Expanded(child: _infoCard(Icons.schedule_rounded, const Color(0xFF334A68), 'Tahmini Süre', duration, '')),
                     const SizedBox(width: 9),
-                    Expanded(child: _infoCard(Icons.inventory_2_outlined, const Color(0xFF334A68), 'Paket Sayısı', package, '')),
+                    Expanded(child: _infoCard(Icons.inventory_2_outlined, const Color(0xFF334A68), 'Gönderi Sayısı', package, '')),
                   ]),
                   const SizedBox(height: 10),
                   Row(children: [
-                    Expanded(child: _infoCard(Icons.restaurant_rounded, accent, 'Paket Türü', packageType, '')),
+                    Expanded(child: _infoCard(Icons.description_rounded, accent, 'Gönderi Türü', packageType, '')),
                     const SizedBox(width: 9),
                     Expanded(child: _infoCard(Icons.credit_card_rounded, green, 'Ödeme Şekli', 'Online Ödeme', '')),
                     const SizedBox(width: 9),
                     Expanded(child: _infoCard(Icons.two_wheeler_rounded, const Color(0xFF7657F6), 'Araç Türü', 'Motosiklet', '')),
                     const SizedBox(width: 9),
-                    Expanded(child: _infoCard(Icons.storefront_rounded, green, 'Restoran Bilgisi', company, '★ 4.6 (320)')),
+                    Expanded(child: _infoCard(Icons.person_rounded, green, 'Müşteri', customerName, '')),
                   ]),
                   const SizedBox(height: 14),
                   Container(
@@ -168,7 +168,7 @@ class _CourierJobDetailSheet extends StatelessWidget {
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Not', style: TextStyle(color: Color(0xFF7D5311), fontWeight: FontWeight.w900, fontSize: 13)),
                         SizedBox(height: 4),
-                        Text('Siparişi alım noktasından teslim aldıktan sonra doğrudan adrese teslim ediniz.', style: TextStyle(color: navy, fontSize: 11.5, height: 1.35)),
+                        Text('Evrakı alım noktasından teslim aldıktan sonra belirtilen teslim adresine götürünüz.', style: TextStyle(color: navy, fontSize: 11.5, height: 1.35)),
                       ])),
                     ]),
                   ),
@@ -180,9 +180,9 @@ class _CourierJobDetailSheet extends StatelessWidget {
               child: Row(children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Arama özelliği gerçek telefon bağlantısında açılacak.'))),
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Müşteri araması gerçek telefon bağlantısında açılacak.'))),
                     icon: const Icon(Icons.phone_outlined),
-                    label: const Text('Restoranı Ara'),
+                    label: const Text('Müşteriyi Ara'),
                     style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58), backgroundColor: const Color(0xFFF0F6FC), foregroundColor: navy, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)), textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
                   ),
                 ),
@@ -211,8 +211,8 @@ class _CourierJobDetailSheet extends StatelessWidget {
         ),
         child: Stack(children: [
           Positioned.fill(child: CustomPaint(painter: _RoutePainter())),
-          const Positioned(left: 22, top: 30, child: _MapPin(color: blue, icon: Icons.location_on_rounded, label: 'Alım\nMecidiyeköy')),
-          const Positioned(right: 22, top: 60, child: _MapPin(color: Color(0xFFFF334D), icon: Icons.location_on_rounded, label: 'Teslim\nOsmanbey')),
+          const Positioned(left: 22, top: 30, child: _MapPin(color: blue, icon: Icons.location_on_rounded, label: 'Alım')),
+          const Positioned(right: 22, top: 60, child: _MapPin(color: Color(0xFFFF334D), icon: Icons.location_on_rounded, label: 'Teslim')),
           Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 8)]), child: Text('$totalKm\n$duration', textAlign: TextAlign.center, style: const TextStyle(color: navy, fontSize: 11, fontWeight: FontWeight.w900)))),
           Positioned(right: 14, bottom: 14, child: CircleAvatar(radius: 23, backgroundColor: Colors.white, child: Icon(Icons.navigation_rounded, color: blue, size: 24))),
         ]),
