@@ -1,0 +1,46 @@
+name: Patch Realtime Customer Assignment
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch_realtime_customer_assignment.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch create shipment navigation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/create_shipment_page_v2.dart')
+          s = p.read_text()
+          old = """      await data.createShipment(
+        vehicleType: vehicle == 0 ? 'motorcycle' : 'car',"""
+          new = """      final createdShipment = await data.createShipment(
+        vehicleType: vehicle == 0 ? 'motorcycle' : 'car',"""
+          if old not in s:
+              raise SystemExit('createShipment call not found')
+          s = s.replace(old, new, 1)
+          old2 = """      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CourierSearchPage()));"""
+          new2 = """      final shipmentId = createdShipment['id']?.toString();
+      if (shipmentId == null || shipmentId.isEmpty) {
+        throw StateError('Gönderi kimliği alınamadı.');
+      }
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => CourierSearchPage(shipmentId: shipmentId)));"""
+          if old2 not in s:
+              raise SystemExit('CourierSearchPage navigation not found')
+          s = s.replace(old2, new2, 1)
+          p.write_text(s)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/create_shipment_page_v2.dart
+          git commit -m "Wire customer shipment to realtime courier assignment" || exit 0
+          git push
