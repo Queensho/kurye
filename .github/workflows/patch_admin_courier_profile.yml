@@ -1,0 +1,42 @@
+name: Patch Admin Courier Profile
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch_admin_courier_profile.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch courier profile display
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/admin_management_page.dart')
+          s = p.read_text()
+          old = """        title: (r['full_name'] ?? r['user_id'] ?? 'Kurye').toString(),
+        subtitle: '${r['vehicle_type'] ?? 'Araç yok'} • ${r['is_online'] == true ? 'Online' : 'Offline'}\\n${r['is_approved'] == true ? 'Onaylı kurye' : 'Onay bekliyor'}',"""
+          new = """        title: ((r['full_name']?.toString().trim().isNotEmpty ?? false) ? r['full_name'] : (r['phone'] ?? r['email'] ?? r['user_id'] ?? 'Kurye')).toString(),
+        subtitle: '${r['phone'] ?? r['email'] ?? 'İletişim bilgisi yok'}\\n${r['vehicle_type'] ?? 'Araç yok'} • ${r['is_online'] == true ? 'Online' : 'Offline'} • ${r['is_approved'] == true ? 'Onaylı' : 'Onay bekliyor'}',"""
+          if old not in s:
+              raise SystemExit('Courier list block not found')
+          s = s.replace(old, new, 1)
+          old2 = """      _kv('Kurye ID', r['user_id']), _kv('Araç', r['vehicle_type']), _kv('Online', r['is_online']==true?'Evet':'Hayır'), _kv('Onay', r['is_approved']==true?'Onaylı':'Bekliyor'), _kv('Aktif İş', r['active_shipment_id'] ?? 'Yok'), _kv('Son Görülme', _date(r['last_seen'])),"""
+          new2 = """      _kv('Ad Soyad', (r['full_name']?.toString().trim().isNotEmpty ?? false) ? r['full_name'] : 'Belirtilmemiş'), _kv('Telefon', r['phone'] ?? 'Belirtilmemiş'), _kv('E-posta', r['email'] ?? 'Belirtilmemiş'), _kv('Kurye ID', r['user_id']), _kv('Araç', r['vehicle_type']), _kv('Online', r['is_online']==true?'Evet':'Hayır'), _kv('Onay', r['is_approved']==true?'Onaylı':'Bekliyor'), _kv('Hesap', r['account_status']=='suspended'?'Askıda':'Aktif'), _kv('Aktif İş', r['active_shipment_id'] ?? 'Yok'), _kv('Son Görülme', _date(r['last_seen'])),"""
+          if old2 not in s:
+              raise SystemExit('Courier detail block not found')
+          s = s.replace(old2, new2, 1)
+          p.write_text(s)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/admin_management_page.dart
+          git commit -m "Show courier applicant profile details" || exit 0
+          git push
