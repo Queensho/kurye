@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'courier_home_page.dart';
 import 'courier_job_pool_page.dart';
+import 'courier_profile_page.dart';
 import 'data/app_data_service.dart';
 import 'home_pixel_preview.dart';
 
@@ -28,6 +29,9 @@ class KuryeApp extends StatelessWidget {
   bool get isJobPoolPath =>
       path.contains('/havuz') || path.contains('/is-havuzu') || path.contains('/iş-havuzu');
 
+  bool get isCourierProfilePath =>
+      path.contains('/profil') || path.contains('/kurye-profili');
+
   @override
   Widget build(BuildContext context) {
     Widget home;
@@ -35,6 +39,8 @@ class KuryeApp extends StatelessWidget {
       home = const HomePixelPreview();
     } else if (isJobPoolPath) {
       home = const CourierJobPoolPage();
+    } else if (isCourierProfilePath) {
+      home = const CourierProfilePage();
     } else {
       home = const CourierHomePage();
     }
