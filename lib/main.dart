@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'admin_announcement_shortcut.dart';
 import 'admin_page.dart';
 import 'announcement_center_page.dart';
+import 'courier_auth_gate.dart';
 import 'courier_earnings_page.dart';
 import 'courier_home_page.dart';
 import 'courier_job_pool_page.dart';
@@ -28,6 +29,8 @@ class KuryeApp extends StatelessWidget {
   bool get isCourierProfilePath => path.contains('/profil')||path.contains('/kurye-profili');
   bool get isCourierEarningsPath => path.contains('/kazanc')||path.contains('/kazanç')||path.contains('/earnings');
 
+  Widget _courierGate(Widget child) => CourierAuthGate(child: child);
+
   @override Widget build(BuildContext context){
     Widget home;
     if(isAdminNotificationsPath){home=const AdminAnnouncementPage();}
@@ -37,10 +40,18 @@ class KuryeApp extends StatelessWidget {
           ? const FixedNotificationBellOverlay(audience:'customer',child:HomePixelPreview())
           : const CustomerPhoneAuthPage();
     }
-    else if(isJobPoolPath){home=const FixedNotificationBellOverlay(audience:'courier',child:CourierJobPoolPage());}
-    else if(isCourierEarningsPath){home=const FixedNotificationBellOverlay(audience:'courier',child:CourierEarningsPage());}
-    else if(isCourierProfilePath){home=const FixedNotificationBellOverlay(audience:'courier',child:CourierProfilePage());}
-    else{home=const FixedNotificationBellOverlay(audience:'courier',child:CourierHomePage());}
+    else if(isJobPoolPath){
+      home=_courierGate(const FixedNotificationBellOverlay(audience:'courier',child:CourierJobPoolPage()));
+    }
+    else if(isCourierEarningsPath){
+      home=_courierGate(const FixedNotificationBellOverlay(audience:'courier',child:CourierEarningsPage()));
+    }
+    else if(isCourierProfilePath){
+      home=_courierGate(const FixedNotificationBellOverlay(audience:'courier',child:CourierProfilePage()));
+    }
+    else{
+      home=_courierGate(const FixedNotificationBellOverlay(audience:'courier',child:CourierHomePage()));
+    }
     return MaterialApp(
       debugShowCheckedModeBanner:false,
       title:isAdminPath?'Kurye Admin':isCustomerPath?'Kurye Müşteri':'Kurye',
