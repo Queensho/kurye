@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'create_shipment_page_v2.dart';
+import 'customer_live_tracking_page.dart';
 import 'data/app_data_service.dart';
 
 class MyShipmentsPage extends StatefulWidget {
@@ -27,9 +28,10 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
   String _statusLabel(String value) {
     switch (value) {
       case 'searching': return 'Kurye aranıyor';
-      case 'courier_found': return 'Kurye bulundu';
-      case 'pickup': return 'Kurye alımda';
-      case 'picked_up': return 'Teslimatta';
+      case 'accepted': return 'Kurye alım noktasına gidiyor';
+      case 'at_pickup': return 'Kurye alım noktasında';
+      case 'picked_up': return 'Gönderin yolda';
+      case 'at_dropoff': return 'Kurye teslimat noktasında';
       case 'delivered': return 'Teslim edildi';
       case 'cancelled': return 'İptal edildi';
       default: return value.isEmpty ? 'Aktif' : value;
@@ -39,7 +41,7 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
   Color _statusColor(String value) {
     if (value == 'delivered') return green;
     if (value == 'cancelled') return const Color(0xFFE65252);
-    if (value == 'pickup') return const Color(0xFFFFA726);
+    if (value == 'at_pickup' || value == 'at_dropoff') return const Color(0xFFFFA726);
     return blue;
   }
 
@@ -158,7 +160,7 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('$count aktif gönderin var', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
             const SizedBox(height: 3),
-            const Text('Canlı durumlarını buradan takip edebilirsin.', style: TextStyle(color: Color(0xE6FFFFFF), fontSize: 11)),
+            const Text('Kuryeyi haritada canlı takip edebilirsin.', style: TextStyle(color: Color(0xE6FFFFFF), fontSize: 11)),
           ])),
         ]),
       );
@@ -170,8 +172,15 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
     final type = '${item['package_type'] ?? 'Paket'}${item['weight_label'] == null ? '' : ' • ${item['weight_label']}'}';
     final price = item['estimated_price'] == null ? '—' : '₺${item['estimated_price']}';
     final code = (item['public_code'] ?? '').toString();
+    final active = !_isPast(item);
     return InkWell(
-      onTap: () => _showShipment(item),
+      onTap: () {
+        if (active) {
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => CustomerLiveTrackingPage(shipmentId: item['id'].toString())));
+        } else {
+          _showShipment(item);
+        }
+      },
       borderRadius: BorderRadius.circular(22),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -196,8 +205,13 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
               child: Row(children: [Icon(Icons.circle, size: 7, color: color), const SizedBox(width: 5), Text(_statusLabel(status), style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w800))]),
             ),
             const Spacer(),
-            Text(_dateLabel(item['created_at']), style: const TextStyle(color: muted, fontSize: 10.5)),
-            const SizedBox(width: 4),
+            if (active) ...[
+              const Icon(Icons.my_location_rounded, color: blue, size: 16),
+              const SizedBox(width: 4),
+              const Text('Canlı Takip', style: TextStyle(color: blue, fontSize: 10.5, fontWeight: FontWeight.w900)),
+              const SizedBox(width: 8),
+            ] else
+              Text(_dateLabel(item['created_at']), style: const TextStyle(color: muted, fontSize: 10.5)),
             const Icon(Icons.chevron_right_rounded, color: muted, size: 19),
           ]),
         ]),
