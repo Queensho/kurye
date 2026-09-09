@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'courier_active_job_page.dart';
-import 'courier_job_detail_sheet.dart';
+import 'data/app_data_service.dart';
 
 class CourierJobPoolPage extends StatefulWidget {
   const CourierJobPoolPage({super.key});
@@ -19,117 +19,225 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
   bool online = true;
   bool mapMode = false;
   int selectedFilter = 0;
+  String? claimingId;
+  late Stream<List<Map<String, dynamic>>> poolStream;
 
-  final jobs = const [
-    _PoolJob(company: 'Ahmet Yılmaz', pickup: 'Mecidiyeköy Mah. Büyükdere Cd. No:12', dropoff: 'Şişli, Osmanbey Mah. 19 Mayıs Cd. No:8', pickupKm: '1.2 km', totalKm: '3.8 km', duration: '18 dk', package: '1 adet', packageType: 'Evrak', earning: 125, age: '12 dk önce'),
-    _PoolJob(company: 'Selin Kaya', pickup: 'Fulya Mah. Abide-i Hürriyet Cd. No:154', dropoff: 'Beşiktaş, Dikilitaş Mah. No:22', pickupKm: '0.8 km', totalKm: '4.1 km', duration: '22 dk', package: '1 adet', packageType: 'Evrak', earning: 98, age: '23 dk önce'),
-    _PoolJob(company: 'Mert Aksoy', pickup: 'Kağıthane, Axis AVM', dropoff: 'Beşiktaş, Levent Mah. Nispetiye Cd.', pickupKm: '2.4 km', totalKm: '6.7 km', duration: '28 dk', package: '2 adet', packageType: 'Dosya', earning: 135, age: '31 dk önce'),
-    _PoolJob(company: 'Ece Demir', pickup: 'Gayrettepe Mah. Yıldız Posta Cd. No:7', dropoff: 'Zincirlikuyu Mah. Eski Büyükdere Cd. No:48', pickupKm: '1.9 km', totalKm: '5.2 km', duration: '24 dk', package: '1 adet', packageType: 'Evrak', earning: 110, age: '40 dk önce'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _activateCourier();
+    poolStream = AppDataService.instance.watchCourierPool();
+  }
+
+  Future<void> _activateCourier() async {
+    try {
+      await AppDataService.instance.setCourierOnline(
+        online: true,
+        vehicleType: 'motorcycle',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kurye durumu açılamadı: $e')),
+      );
+    }
+  }
+
+  Future<void> _setOnline(bool value) async {
+    setState(() => online = value);
+    try {
+      await AppDataService.instance.setCourierOnline(
+        online: value,
+        vehicleType: 'motorcycle',
+      );
+      setState(() => poolStream = AppDataService.instance.watchCourierPool());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => online = !value);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Durum güncellenemedi: $e')),
+      );
+    }
+  }
+
+  List<Map<String, dynamic>> _applyFilter(List<Map<String, dynamic>> rows) {
+    return rows.where((row) {
+      final price = (row['estimated_price'] as num?)?.toInt() ?? 0;
+      final duration = (row['duration_min'] as num?)?.toInt() ?? 0;
+      final distance = (row['distance_km'] as num?)?.toDouble() ?? 0;
+      if (selectedFilter == 1) return distance > 0 && distance <= 5;
+      if (selectedFilter == 2) return price >= 120;
+      if (selectedFilter == 3) return duration > 0 && duration <= 25;
+      return true;
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final visibleJobs = jobs.where((job) {
-      if (selectedFilter == 1) return double.parse(job.pickupKm.split(' ').first) <= 1.5;
-      if (selectedFilter == 2) return job.earning >= 120;
-      if (selectedFilter == 3) return job.duration == '18 dk' || job.duration == '22 dk';
-      return true;
-    }).toList();
-
     return Scaffold(
       backgroundColor: bg,
       body: SafeArea(
-        child: Column(children: [
-          _header(),
-          _filters(),
-          Expanded(
-            child: mapMode
-                ? _mapPlaceholder()
-                : ListView.builder(
+        child: Column(
+          children: [
+            _header(),
+            _filters(),
+            Expanded(
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: poolStream,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return _stateMessage(
+                      Icons.cloud_off_rounded,
+                      'İş havuzu yüklenemedi',
+                      snapshot.error.toString(),
+                    );
+                  }
+                  final jobs = _applyFilter(snapshot.data ?? const []);
+                  if (!online) {
+                    return _stateMessage(
+                      Icons.power_settings_new_rounded,
+                      'Çevrimdışısın',
+                      'Yeni işleri görmek ve almak için Online ol.',
+                    );
+                  }
+                  if (jobs.isEmpty) {
+                    return _stateMessage(
+                      Icons.inbox_outlined,
+                      'Şu an uygun iş yok',
+                      'Müşteri yeni bir gönderi oluşturduğunda burada anında görünecek.',
+                    );
+                  }
+                  if (mapMode) return _mapPlaceholder(jobs.length);
+                  return ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-                    itemCount: visibleJobs.length,
-                    itemBuilder: (_, index) => _jobCard(visibleJobs[index]),
-                  ),
-          ),
-        ]),
+                    itemCount: jobs.length,
+                    itemBuilder: (_, i) => _jobCard(jobs[i]),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: _bottomNav(),
     );
   }
 
   Widget _header() => Container(
-        decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF269FFF), Color(0xFF168CF5)])),
-        padding: const EdgeInsets.fromLTRB(18, 15, 18, 16),
-        child: Column(children: [
-          Row(children: [
-            IconButton(onPressed: () => Navigator.maybePop(context), icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white)),
-            const SizedBox(width: 3),
-            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('İş Havuzu', style: TextStyle(color: Colors.white, fontSize: 31, fontWeight: FontWeight.w900, height: 1)),
-              SizedBox(height: 5),
-              Text('Uygun işleri gör ve hemen al', style: TextStyle(color: Color(0xE8FFFFFF), fontSize: 13)),
-            ])),
-            Container(
-              height: 48,
-              padding: const EdgeInsets.only(left: 13, right: 5),
-              decoration: BoxDecoration(color: online ? const Color(0xFF1ED36F) : const Color(0xFF8CA0B2), borderRadius: BorderRadius.circular(30)),
-              child: Row(children: [
-                Container(width: 18, height: 18, decoration: BoxDecoration(border: Border.all(color: Colors.white, width: 3), shape: BoxShape.circle)),
-                const SizedBox(width: 8),
-                Text(online ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
-                const SizedBox(width: 5),
-                Switch(value: online, onChanged: (v) => setState(() => online = v), activeThumbColor: Colors.white, activeTrackColor: Colors.white24, inactiveThumbColor: Colors.white, inactiveTrackColor: Colors.white24),
-              ]),
-            ),
-          ]),
-          const SizedBox(height: 22),
-          Container(
-            height: 54,
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: .9), borderRadius: BorderRadius.circular(28)),
-            child: Row(children: [
-              Expanded(child: _modeButton(false, Icons.format_list_bulleted_rounded, 'Liste Görünümü')),
-              Expanded(child: _modeButton(true, Icons.map_outlined, 'Harita Görünümü')),
-            ]),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF269FFF), Color(0xFF168CF5)],
           ),
-        ]),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.maybePop(context),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+                ),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('İş Havuzu', style: TextStyle(color: Colors.white, fontSize: 27, fontWeight: FontWeight.w900)),
+                      SizedBox(height: 3),
+                      Text('Yeni müşteri gönderileri gerçek zamanlı gelir', style: TextStyle(color: Color(0xE8FFFFFF), fontSize: 11)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.only(left: 10, right: 3),
+                  decoration: BoxDecoration(
+                    color: online ? const Color(0xFF1ED36F) : const Color(0xFF8CA0B2),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(online ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                      Switch(
+                        value: online,
+                        onChanged: _setOnline,
+                        activeThumbColor: Colors.white,
+                        activeTrackColor: Colors.white24,
+                        inactiveThumbColor: Colors.white,
+                        inactiveTrackColor: Colors.white24,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              height: 50,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: .92), borderRadius: BorderRadius.circular(26)),
+              child: Row(
+                children: [
+                  Expanded(child: _mode(false, Icons.format_list_bulleted_rounded, 'Liste')),
+                  Expanded(child: _mode(true, Icons.map_outlined, 'Harita')),
+                ],
+              ),
+            ),
+          ],
+        ),
       );
 
-  Widget _modeButton(bool value, IconData icon, String text) {
+  Widget _mode(bool value, IconData icon, String label) {
     final selected = mapMode == value;
     return InkWell(
       onTap: () => setState(() => mapMode = value),
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
-        decoration: BoxDecoration(color: selected ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(24), boxShadow: selected ? const [BoxShadow(color: Color(0x15000000), blurRadius: 10, offset: Offset(0, 3))] : null),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: selected ? blue : const Color(0xFF3F5D7D), size: 24),
-          const SizedBox(width: 8),
-          Text(text, style: TextStyle(color: selected ? navy : const Color(0xFF3F5D7D), fontWeight: FontWeight.w900, fontSize: 13)),
-        ]),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: selected ? const [BoxShadow(color: Color(0x12000000), blurRadius: 8)] : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: selected ? blue : muted, size: 20),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(color: selected ? navy : muted, fontWeight: FontWeight.w900, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
 
   Widget _filters() {
-    const labels = ['Tümü', 'Yakınımdakiler', 'Yüksek Kazançlı', 'Hızlı Teslimat'];
+    const labels = ['Tümü', 'Yakınımdakiler', 'Yüksek Kazanç', 'Hızlı'];
     return SizedBox(
-      height: 72,
+      height: 66,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 15, 16, 14),
+        padding: const EdgeInsets.fromLTRB(16, 13, 16, 11),
         itemCount: labels.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, index) {
-          final selected = selectedFilter == index;
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final selected = selectedFilter == i;
           return InkWell(
-            onTap: () => setState(() => selectedFilter = index),
-            borderRadius: BorderRadius.circular(23),
+            onTap: () => setState(() => selectedFilter = i),
+            borderRadius: BorderRadius.circular(22),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 17),
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: selected ? blue : Colors.white, borderRadius: BorderRadius.circular(23), boxShadow: const [BoxShadow(color: Color(0x0C000000), blurRadius: 10, offset: Offset(0, 4))]),
-              child: Text(labels[index], style: TextStyle(color: selected ? Colors.white : const Color(0xFF314A67), fontSize: 12.5, fontWeight: selected ? FontWeight.w900 : FontWeight.w700)),
+              decoration: BoxDecoration(
+                color: selected ? blue : Colors.white,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Text(labels[i], style: TextStyle(color: selected ? Colors.white : navy, fontSize: 11.5, fontWeight: FontWeight.w800)),
             ),
           );
         },
@@ -137,169 +245,194 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
     );
   }
 
-  Widget _jobCard(_PoolJob job) => Container(
-        margin: const EdgeInsets.only(bottom: 13),
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 13),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 18, offset: Offset(0, 6))]),
-        child: Column(children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const CircleAvatar(radius: 27, backgroundColor: Color(0xFFEAF4FF), child: Icon(Icons.description_outlined, color: blue, size: 27)),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(job.company, style: const TextStyle(color: navy, fontSize: 18, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 5),
-              _addressRow(blue, Icons.circle, job.pickup),
-              const SizedBox(height: 5),
-              _addressRow(const Color(0xFFFF334D), Icons.location_on_rounded, job.dropoff),
-            ])),
-            const SizedBox(width: 8),
-            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), decoration: BoxDecoration(color: const Color(0xFFEAF4FF), borderRadius: BorderRadius.circular(14)), child: Text(job.age, style: const TextStyle(color: blue, fontSize: 10, fontWeight: FontWeight.w800))),
-              const SizedBox(height: 4),
-              Text('₺${job.earning}', style: const TextStyle(color: Color(0xFF05A65A), fontSize: 25, fontWeight: FontWeight.w900)),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFEAF4FF), borderRadius: BorderRadius.circular(12)), child: Text(job.packageType, style: const TextStyle(color: blue, fontSize: 9.5, fontWeight: FontWeight.w800))),
-            ]),
-          ]),
-          const SizedBox(height: 14),
+  Widget _jobCard(Map<String, dynamic> job) {
+    final pickup = (job['pickup_address'] ?? '').toString();
+    final dropoff = (job['dropoff_address'] ?? '').toString();
+    final totalKm = (job['distance_km'] as num?)?.toDouble();
+    final duration = (job['duration_min'] as num?)?.toInt();
+    final earning = (job['estimated_price'] as num?)?.toInt() ?? 0;
+    final packageType = (job['package_type'] ?? 'Evrak').toString();
+    final code = (job['public_code'] ?? 'Gönderi').toString();
+    final id = job['id'].toString();
+    final busy = claimingId == id;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [BoxShadow(color: Color(0x0E000000), blurRadius: 16, offset: Offset(0, 5))],
+      ),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const CircleAvatar(radius: 25, backgroundColor: Color(0xFFEAF4FF), child: Icon(Icons.description_outlined, color: blue)),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(code, style: const TextStyle(color: navy, fontSize: 17, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 5),
+                    _addressRow(blue, pickup),
+                    const SizedBox(height: 5),
+                    _addressRow(const Color(0xFFFF334D), dropoff),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('₺$earning', style: const TextStyle(color: Color(0xFF05A65A), fontSize: 24, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: const Color(0xFFEAF4FF), borderRadius: BorderRadius.circular(12)),
+                    child: Text(packageType, style: const TextStyle(color: blue, fontSize: 9.5, fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 13),
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 11),
-            decoration: BoxDecoration(color: const Color(0xFFF0F7FF), borderRadius: BorderRadius.circular(18)),
-            child: Row(children: [
-              _metric(Icons.location_on_rounded, job.pickupKm, 'Alımına'), _divider(),
-              _metric(Icons.route_rounded, job.totalKm, 'Toplam'), _divider(),
-              _metric(Icons.schedule_rounded, job.duration, 'Tahmini Süre'), _divider(),
-              _metric(Icons.description_outlined, job.package, job.packageType),
-            ]),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(color: const Color(0xFFF0F7FF), borderRadius: BorderRadius.circular(17)),
+            child: Row(
+              children: [
+                _metric(Icons.route_rounded, totalKm == null ? '—' : '${totalKm.toStringAsFixed(1)} km', 'Toplam'),
+                _divider(),
+                _metric(Icons.schedule_rounded, duration == null ? '—' : '$duration dk', 'Tahmini'),
+                _divider(),
+                _metric(Icons.payments_outlined, '₺$earning', 'Kazanç'),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: OutlinedButton.icon(onPressed: () => _showDetails(job), icon: const Icon(Icons.description_outlined), label: const Text('Detaylar'), style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), foregroundColor: const Color(0xFF284B73), side: BorderSide.none, backgroundColor: const Color(0xFFF0F7FF), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)))),
-            const SizedBox(width: 10),
-            Expanded(child: FilledButton.icon(onPressed: online ? () => _takeJob(job) : null, icon: const Icon(Icons.bolt_rounded), label: Text(online ? 'İşi Al' : 'Offline'), style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52), backgroundColor: blue, disabledBackgroundColor: const Color(0xFFB3C3D4), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)))),
-          ]),
-        ]),
-      );
+          FilledButton.icon(
+            onPressed: busy || !online ? null : () => _takeJob(job),
+            icon: busy
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.bolt_rounded),
+            label: Text(busy ? 'Alınıyor...' : 'İşi Al'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+              backgroundColor: blue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _addressRow(Color color, IconData icon, String text) => Row(children: [
-        Icon(icon, color: color, size: icon == Icons.circle ? 11 : 16),
-        const SizedBox(width: 6),
-        Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF5E7085), fontSize: 11.5, fontWeight: FontWeight.w600))),
-      ]);
+  Future<void> _takeJob(Map<String, dynamic> job) async {
+    final id = job['id'].toString();
+    setState(() => claimingId = id);
+    try {
+      final claimed = await AppDataService.instance.claimShipment(id);
+      if (!mounted) return;
+      setState(() => claimingId = null);
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CourierActiveJobPage(
+            pickup: (claimed['pickup_address'] ?? '').toString(),
+            dropoff: (claimed['dropoff_address'] ?? '').toString(),
+            pickupKm: '—',
+            totalKm: '${((claimed['distance_km'] as num?)?.toDouble() ?? 0).toStringAsFixed(1)} km',
+            duration: '${(claimed['duration_min'] as num?)?.toInt() ?? 0} dk',
+            earning: (claimed['estimated_price'] as num?)?.toInt() ?? 0,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => claimingId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF10213E),
+          content: Text(e.toString().replaceFirst('Bad state: ', '')),
+        ),
+      );
+    }
+  }
+
+  Widget _addressRow(Color color, String text) => Row(
+        children: [
+          Icon(Icons.location_on_rounded, color: color, size: 15),
+          const SizedBox(width: 5),
+          Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF5E7085), fontSize: 11))),
+        ],
+      );
 
   Widget _metric(IconData icon, String value, String label) => Expanded(
-        child: Column(children: [
-          Icon(icon, color: const Color(0xFF24578A), size: 20),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(color: navy, fontSize: 13, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 1),
-          Text(label, textAlign: TextAlign.center, style: const TextStyle(color: muted, fontSize: 8.5)),
-        ]),
-      );
-
-  Widget _divider() => Container(width: 1, height: 39, color: const Color(0xFFDDE8F4));
-
-  Widget _mapPlaceholder() => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(color: const Color(0xFFE6EEF6), borderRadius: BorderRadius.circular(26)),
-          child: const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-            CircleAvatar(radius: 34, backgroundColor: Colors.white, child: Icon(Icons.map_rounded, color: blue, size: 34)),
-            SizedBox(height: 12),
-            Text('Harita Görünümü', style: TextStyle(color: navy, fontSize: 20, fontWeight: FontWeight.w900)),
-            SizedBox(height: 5),
-            Text('Havuzdaki işleri harita üzerinde görüntüle.', style: TextStyle(color: muted, fontSize: 12)),
-          ])),
+        child: Column(
+          children: [
+            Icon(icon, color: const Color(0xFF24578A), size: 19),
+            const SizedBox(height: 4),
+            Text(value, style: const TextStyle(color: navy, fontSize: 12.5, fontWeight: FontWeight.w900)),
+            Text(label, style: const TextStyle(color: muted, fontSize: 8.5)),
+          ],
         ),
       );
 
-  void _showDetails(_PoolJob job) {
-    showCourierJobDetails(
-      context: context,
-      company: job.company,
-      pickup: job.pickup,
-      dropoff: job.dropoff,
-      pickupKm: job.pickupKm,
-      totalKm: job.totalKm,
-      duration: job.duration,
-      package: job.package,
-      packageType: job.packageType,
-      earning: job.earning,
-      age: job.age,
-      category: 'Evrak Teslimatı',
-      icon: Icons.description_outlined,
-      accent: blue,
-      online: online,
-      onTake: () => _takeJob(job),
-    );
-  }
+  Widget _divider() => Container(width: 1, height: 38, color: const Color(0xFFDDE8F4));
 
-  void _takeJob(_PoolJob job) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => CourierActiveJobPage(
-        pickup: job.pickup,
-        dropoff: job.dropoff,
-        pickupKm: job.pickupKm,
-        totalKm: job.totalKm,
-        duration: job.duration,
-        earning: job.earning,
-      ),
-    ));
-  }
+  Widget _mapPlaceholder(int count) => _stateMessage(
+        Icons.map_rounded,
+        'Harita görünümü',
+        '$count uygun iş var. Gerçek harita pinleri sonraki adımda bağlanacak.',
+      );
 
-  Widget _bottomNav() {
-    final items = const [(Icons.home_rounded, 'Ana Sayfa'), (Icons.format_list_bulleted_rounded, 'İş Havuzu'), (Icons.map_outlined, 'Harita'), (Icons.person_outline_rounded, 'Profilim')];
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x17000000), blurRadius: 20, offset: Offset(0, 7))]),
-        child: Row(children: [
-          for (int i = 0; i < items.length; i++)
-            Expanded(child: InkWell(
-              onTap: () {
-                if (i == 0) Navigator.maybePop(context);
-                if (i == 2) setState(() => mapMode = true);
-              },
-              borderRadius: BorderRadius.circular(20),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(items[i].$1, color: i == 1 ? blue : const Color(0xFF78899E), size: 26),
-                  const SizedBox(height: 3),
-                  Text(items[i].$2, style: TextStyle(color: i == 1 ? blue : const Color(0xFF78899E), fontSize: 9.5, fontWeight: i == 1 ? FontWeight.w900 : FontWeight.w700)),
-                ]),
-              ),
-            )),
-        ]),
-      ),
-    );
-  }
-}
+  Widget _stateMessage(IconData icon, String title, String subtitle) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(radius: 34, backgroundColor: Colors.white, child: Icon(icon, color: blue, size: 34)),
+              const SizedBox(height: 12),
+              Text(title, textAlign: TextAlign.center, style: const TextStyle(color: navy, fontSize: 19, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 5),
+              Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: muted, fontSize: 12, height: 1.4)),
+            ],
+          ),
+        ),
+      );
 
-class _PoolJob {
-  final String company;
-  final String pickup;
-  final String dropoff;
-  final String pickupKm;
-  final String totalKm;
-  final String duration;
-  final String package;
-  final String packageType;
-  final int earning;
-  final String age;
+  Widget _bottomNav() => SafeArea(
+        top: false,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28)),
+          child: Row(
+            children: [
+              _nav(Icons.home_rounded, 'Ana Sayfa', false, () => Navigator.maybePop(context)),
+              _nav(Icons.format_list_bulleted_rounded, 'İş Havuzu', true, () => setState(() => mapMode = false)),
+              _nav(Icons.map_outlined, 'Harita', mapMode, () => setState(() => mapMode = true)),
+              _nav(Icons.person_outline_rounded, 'Profilim', false, () => Navigator.maybePop(context)),
+            ],
+          ),
+        ),
+      );
 
-  const _PoolJob({
-    required this.company,
-    required this.pickup,
-    required this.dropoff,
-    required this.pickupKm,
-    required this.totalKm,
-    required this.duration,
-    required this.package,
-    required this.packageType,
-    required this.earning,
-    required this.age,
-  });
+  Widget _nav(IconData icon, String label, bool selected, VoidCallback tap) => Expanded(
+        child: InkWell(
+          onTap: tap,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: selected ? blue : muted, size: 23),
+              const SizedBox(height: 2),
+              Text(label, style: TextStyle(color: selected ? blue : muted, fontSize: 9.5, fontWeight: selected ? FontWeight.w900 : FontWeight.w600)),
+            ],
+          ),
+        ),
+      );
 }
