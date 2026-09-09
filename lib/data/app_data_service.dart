@@ -62,7 +62,40 @@ class AppDataService {
   Future<void> deletePaymentMethod(String id) async => client.from('payment_methods').delete().eq('id', id).eq('user_id', userId);
   Future<void> setDefaultPaymentMethod(String id) async { await client.from('payment_methods').update({'is_default':false}).eq('user_id',userId); await client.from('payment_methods').update({'is_default':true}).eq('id',id).eq('user_id',userId); }
 
-  Future<Map<String,dynamic>> createShipment({required String vehicleType,required String packageType,required String pickupAddress,required String dropoffAddress,double? pickupLat,double? pickupLng,double? dropoffLat,double? dropoffLng,String? weightLabel,String? sizeLabel,String? note,double? distanceKm,int? durationMin,int? estimatedPrice,required String paymentType,String? paymentMethodId}) async => Map<String,dynamic>.from(await client.from('shipments').insert({'user_id':userId,'status':'searching','vehicle_type':vehicleType,'package_type':packageType,'pickup_address':pickupAddress,'pickup_lat':pickupLat,'pickup_lng':pickupLng,'dropoff_address':dropoffAddress,'dropoff_lat':dropoffLat,'dropoff_lng':dropoffLng,'weight_label':weightLabel,'size_label':sizeLabel,'note':note,'distance_km':distanceKm,'duration_min':durationMin,'estimated_price':estimatedPrice,'payment_type':paymentType,'payment_method_id':paymentMethodId}).select().single());
+  Future<Map<String,dynamic>> calculateDeliveryPrice({required String vehicleType, required double distanceKm, String? pickupAddress}) async {
+    final value = await client.rpc('calculate_delivery_price', params:{
+      'p_vehicle_type':vehicleType,
+      'p_distance_km':distanceKm,
+      'p_pickup_address':pickupAddress,
+    });
+    return Map<String,dynamic>.from(value as Map);
+  }
+
+  Future<Map<String,dynamic>> createShipment({required String vehicleType,required String packageType,required String pickupAddress,required String dropoffAddress,double? pickupLat,double? pickupLng,double? dropoffLat,double? dropoffLng,String? weightLabel,String? sizeLabel,String? note,double? distanceKm,int? durationMin,int? estimatedPrice,required String paymentType,String? paymentMethodId}) async {
+    try {
+      final value = await client.rpc('create_priced_shipment',params:{
+        'p_vehicle_type':vehicleType,
+        'p_package_type':packageType,
+        'p_pickup_address':pickupAddress,
+        'p_dropoff_address':dropoffAddress,
+        'p_pickup_lat':pickupLat,
+        'p_pickup_lng':pickupLng,
+        'p_dropoff_lat':dropoffLat,
+        'p_dropoff_lng':dropoffLng,
+        'p_weight_label':weightLabel,
+        'p_size_label':sizeLabel,
+        'p_note':note,
+        'p_distance_km':distanceKm,
+        'p_duration_min':durationMin,
+        'p_payment_type':paymentType,
+        'p_payment_method_id':paymentMethodId,
+      });
+      return Map<String,dynamic>.from(value as Map);
+    } on PostgrestException catch(e) {
+      if (e.message.contains('pricing_rule_not_found')) throw StateError('Bu araç tipi için aktif fiyat kuralı bulunamadı.');
+      rethrow;
+    }
+  }
   Future<List<Map<String,dynamic>>> getShipments() async => List<Map<String,dynamic>>.from(await client.from('shipments').select().eq('user_id',userId).order('created_at',ascending:false));
   Stream<List<Map<String,dynamic>>> watchShipments() => client.from('shipments').stream(primaryKey:['id']).eq('user_id',userId).order('created_at',ascending:false).map((r)=>List<Map<String,dynamic>>.from(r));
 
