@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'courier_home_page.dart';
+import 'courier_job_pool_page.dart';
 import 'data/app_data_service.dart';
 import 'home_pixel_preview.dart';
 
@@ -17,15 +18,27 @@ Future<void> main() async {
 class KuryeApp extends StatelessWidget {
   const KuryeApp({super.key});
 
-  bool get isCustomerPath {
-    final path = Uri.decodeComponent(Uri.base.path).toLowerCase();
-    return path.contains('/müsteri') ||
-        path.contains('/müşteri') ||
-        path.contains('/musteri');
-  }
+  String get path => Uri.decodeComponent(Uri.base.path).toLowerCase();
+
+  bool get isCustomerPath =>
+      path.contains('/müsteri') ||
+      path.contains('/müşteri') ||
+      path.contains('/musteri');
+
+  bool get isJobPoolPath =>
+      path.contains('/havuz') || path.contains('/is-havuzu') || path.contains('/iş-havuzu');
 
   @override
   Widget build(BuildContext context) {
+    Widget home;
+    if (isCustomerPath) {
+      home = const HomePixelPreview();
+    } else if (isJobPoolPath) {
+      home = const CourierJobPoolPage();
+    } else {
+      home = const CourierHomePage();
+    }
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: isCustomerPath ? 'Kurye Müşteri' : 'Kurye',
@@ -34,9 +47,7 @@ class KuryeApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF7FBFF),
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF168CF5)),
       ),
-      home: isCustomerPath
-          ? const HomePixelPreview()
-          : const CourierHomePage(),
+      home: home,
     );
   }
 }
