@@ -83,7 +83,7 @@ class _CustomerAssignedCourierPageState extends State<CustomerAssignedCourierPag
 
   void _openChat(String name) {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => ShipmentChatPage(shipmentId: widget.shipmentId, peerName: name),
+      builder: (_) => ShipmentChatPage(shipmentId: widget.shipmentId, title: name),
     ));
   }
 
