@@ -20,14 +20,18 @@ class AppDataService {
     if (isSignedIn) await ensureProfile();
   }
 
-  Future<void> sendPhoneOtp(String phone) async {
-    await client.auth.signInWithOtp(phone: phone);
-  }
-
-  Future<void> verifyPhoneOtp({required String phone, required String token}) async {
-    await client.auth.verifyOTP(phone: phone, token: token, type: OtpType.sms);
+  Future<void> signUpWithPhonePassword({required String phone, required String password}) async {
+    final res = await client.auth.signUp(phone: phone, password: password);
+    if (res.session == null) {
+      throw StateError('Telefon doğrulaması açık. OTP kullanmadan kayıt için Supabase Phone doğrulamasını kapatmalısın.');
+    }
     await ensureProfile();
     await client.from('profiles').update({'phone': phone, 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('id', userId);
+  }
+
+  Future<void> signInWithPhonePassword({required String phone, required String password}) async {
+    await client.auth.signInWithPassword(phone: phone, password: password);
+    await ensureProfile();
   }
 
   Future<void> ensureProfile() async => client.from('profiles').upsert({'id': userId}, onConflict: 'id');
