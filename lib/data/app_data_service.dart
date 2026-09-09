@@ -68,11 +68,7 @@ class AppDataService {
 
   Future<Map<String,dynamic>> setCourierOnline({required bool online,String vehicleType='motorcycle',double? latitude,double? longitude}) async {
     final result = Map<String,dynamic>.from(await client.rpc('set_courier_online',params:{'p_online':online,'p_vehicle_type':vehicleType,'p_latitude':latitude,'p_longitude':longitude}) as Map);
-    if (online) {
-      unawaited(startCourierLocationTracking());
-    } else {
-      await stopCourierLocationTracking();
-    }
+    if (online) { unawaited(startCourierLocationTracking()); } else { await stopCourierLocationTracking(); }
     return result;
   }
 
@@ -86,18 +82,12 @@ class AppDataService {
       final first = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
       await updateCourierLocation(first.latitude, first.longitude);
     } catch (_) {}
-    _courierPositionSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 15),
-    ).listen((position) async {
+    _courierPositionSubscription = Geolocator.getPositionStream(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 15)).listen((position) async {
       try { await updateCourierLocation(position.latitude, position.longitude); } catch (_) {}
     });
   }
 
-  Future<void> stopCourierLocationTracking() async {
-    await _courierPositionSubscription?.cancel();
-    _courierPositionSubscription = null;
-  }
-
+  Future<void> stopCourierLocationTracking() async { await _courierPositionSubscription?.cancel(); _courierPositionSubscription = null; }
   Future<void> updateCourierLocation(double latitude,double longitude) async => client.rpc('update_courier_location',params:{'p_latitude':latitude,'p_longitude':longitude});
   Stream<Map<String,dynamic>> watchCourierLocation(String courierId) => client.from('couriers').stream(primaryKey:['user_id']).eq('user_id',courierId).map((rows)=>rows.isEmpty?<String,dynamic>{}:Map<String,dynamic>.from(rows.first));
   Stream<List<Map<String,dynamic>>> watchCourierPool() => client.from('shipments').stream(primaryKey:['id']).eq('status','searching').order('created_at',ascending:false).map((r)=>List<Map<String,dynamic>>.from(r.where((e)=>e['courier_id']==null)));
@@ -109,6 +99,25 @@ class AppDataService {
   }
 
   Stream<Map<String,dynamic>> watchShipment(String shipmentId) => client.from('shipments').stream(primaryKey:['id']).eq('id', shipmentId).map((rows) => rows.isEmpty ? <String,dynamic>{} : Map<String,dynamic>.from(rows.first));
+
+  Future<Map<String,dynamic>> getCourierEarningsSummary() async {
+    final value = await client.rpc('get_courier_earnings_summary');
+    return Map<String,dynamic>.from(value as Map);
+  }
+
+  Stream<List<Map<String,dynamic>>> watchCourierEarnings() => client
+      .from('courier_earnings')
+      .stream(primaryKey:['id'])
+      .eq('courier_id', userId)
+      .order('created_at', ascending:false)
+      .map((rows)=>List<Map<String,dynamic>>.from(rows));
+
+  Stream<List<Map<String,dynamic>>> watchCourierPayouts() => client
+      .from('courier_payouts')
+      .stream(primaryKey:['id'])
+      .eq('courier_id', userId)
+      .order('created_at', ascending:false)
+      .map((rows)=>List<Map<String,dynamic>>.from(rows));
 
   Future<List<Map<String,dynamic>>> getConversations() async => List<Map<String,dynamic>>.from(await client.from('conversations').select('*, shipments(public_code,pickup_address,dropoff_address)').eq('user_id',userId).order('updated_at',ascending:false));
   Future<List<Map<String,dynamic>>> getMessages(String conversationId) async => List<Map<String,dynamic>>.from(await client.from('messages').select().eq('conversation_id',conversationId).order('created_at'));
