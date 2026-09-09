@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'create_shipment_page_v2.dart';
+import 'data/app_data_service.dart';
+
 class MyShipmentsPage extends StatefulWidget {
   const MyShipmentsPage({super.key});
 
@@ -13,67 +16,45 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
   static const muted = Color(0xFF7C879C);
   static const green = Color(0xFF19C983);
 
+  final data = AppDataService.instance;
   int tab = 0;
 
-  final activeShipments = const [
-    _Shipment(
-      id: '#12504',
-      route: 'Şişli → Kadıköy',
-      date: 'Bugün 00:38',
-      status: 'Teslimatta',
-      price: '₺145',
-      type: 'Paket • 0–5 kg',
-      icon: Icons.local_shipping_rounded,
-      statusColor: blue,
-    ),
-    _Shipment(
-      id: '#12503',
-      route: 'Beşiktaş → Sarıyer',
-      date: 'Bugün 00:12',
-      status: 'Kurye alımda',
-      price: '₺120',
-      type: 'Belge • Küçük',
-      icon: Icons.inventory_2_rounded,
-      statusColor: Color(0xFFFFA726),
-    ),
-  ];
+  bool _isPast(Map<String, dynamic> s) {
+    final status = (s['status'] ?? '').toString();
+    return status == 'delivered' || status == 'cancelled';
+  }
 
-  final pastShipments = const [
-    _Shipment(
-      id: '#12458',
-      route: 'Şişli → Kadıköy',
-      date: 'Dün 14:32',
-      status: 'Teslim edildi',
-      price: '₺135',
-      type: 'Paket • 0–5 kg',
-      icon: Icons.check_circle_rounded,
-      statusColor: green,
-    ),
-    _Shipment(
-      id: '#12441',
-      route: 'Bakırköy → Ataşehir',
-      date: '7 Eyl 18:06',
-      status: 'Teslim edildi',
-      price: '₺210',
-      type: 'Araç • Orta boy',
-      icon: Icons.check_circle_rounded,
-      statusColor: green,
-    ),
-    _Shipment(
-      id: '#12397',
-      route: 'Beyoğlu → Üsküdar',
-      date: '5 Eyl 12:24',
-      status: 'İptal edildi',
-      price: '₺0',
-      type: 'Belge • Küçük',
-      icon: Icons.cancel_rounded,
-      statusColor: Color(0xFFE65252),
-    ),
-  ];
+  String _statusLabel(String value) {
+    switch (value) {
+      case 'searching': return 'Kurye aranıyor';
+      case 'courier_found': return 'Kurye bulundu';
+      case 'pickup': return 'Kurye alımda';
+      case 'picked_up': return 'Teslimatta';
+      case 'delivered': return 'Teslim edildi';
+      case 'cancelled': return 'İptal edildi';
+      default: return value.isEmpty ? 'Aktif' : value;
+    }
+  }
+
+  Color _statusColor(String value) {
+    if (value == 'delivered') return green;
+    if (value == 'cancelled') return const Color(0xFFE65252);
+    if (value == 'pickup') return const Color(0xFFFFA726);
+    return blue;
+  }
+
+  String _dateLabel(dynamic raw) {
+    final dt = DateTime.tryParse((raw ?? '').toString())?.toLocal();
+    if (dt == null) return '';
+    final d = dt.day.toString().padLeft(2, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final h = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    return '$d.$m.${dt.year} $h:$min';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final list = tab == 0 ? activeShipments : pastShipments;
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAFF),
       appBar: AppBar(
@@ -82,34 +63,54 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
         elevation: 0,
         title: const Text('Gönderilerim', style: TextStyle(color: navy, fontWeight: FontWeight.w900)),
       ),
-      body: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(color: const Color(0xFFF0F5FA), borderRadius: BorderRadius.circular(16)),
-              child: Row(children: [
-                Expanded(child: _tabButton('Aktif', 0, activeShipments.length)),
-                Expanded(child: _tabButton('Geçmiş', 1, pastShipments.length)),
-              ]),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: data.watchShipments(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Gönderiler alınamadı: ${snapshot.error}', textAlign: TextAlign.center)));
+          }
+          final all = snapshot.data ?? const <Map<String, dynamic>>[];
+          final active = all.where((s) => !_isPast(s)).toList();
+          final past = all.where(_isPast).toList();
+          final list = tab == 0 ? active : past;
+
+          return Column(children: [
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(color: const Color(0xFFF0F5FA), borderRadius: BorderRadius.circular(16)),
+                child: Row(children: [
+                  Expanded(child: _tabButton('Aktif', 0, active.length)),
+                  Expanded(child: _tabButton('Geçmiş', 1, past.length)),
+                ]),
+              ),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 110),
-              children: [
-                if (tab == 0) _summaryCard(),
-                if (tab == 0) const SizedBox(height: 12),
-                ...list.map(_shipmentCard),
-              ],
+            Expanded(
+              child: list.isEmpty
+                  ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(tab == 0 ? Icons.local_shipping_outlined : Icons.history_rounded, size: 54, color: const Color(0xFFB9C4D3)),
+                      const SizedBox(height: 10),
+                      Text(tab == 0 ? 'Aktif gönderin yok' : 'Geçmiş gönderin yok', style: const TextStyle(color: muted, fontWeight: FontWeight.w800)),
+                    ]))
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 110),
+                      children: [
+                        if (tab == 0) _summaryCard(active.length),
+                        if (tab == 0) const SizedBox(height: 12),
+                        ...list.map(_shipmentCard),
+                      ],
+                    ),
             ),
-          ),
-        ],
+          ]);
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CreateShipmentPage())),
         backgroundColor: blue,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
@@ -144,72 +145,68 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
     );
   }
 
-  Widget _summaryCard() => Container(
+  Widget _summaryCard(int count) => Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: const LinearGradient(colors: [Color(0xFF168CF5), Color(0xFF49B4FF)]),
           borderRadius: BorderRadius.circular(22),
           boxShadow: const [BoxShadow(color: Color(0x24168CF5), blurRadius: 16, offset: Offset(0, 7))],
         ),
-        child: const Row(children: [
-          CircleAvatar(backgroundColor: Color(0x33FFFFFF), child: Icon(Icons.local_shipping_rounded, color: Colors.white)),
-          SizedBox(width: 12),
+        child: Row(children: [
+          const CircleAvatar(backgroundColor: Color(0x33FFFFFF), child: Icon(Icons.local_shipping_rounded, color: Colors.white)),
+          const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('2 aktif gönderin var', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
-            SizedBox(height: 3),
-            Text('Canlı durumlarını buradan takip edebilirsin.', style: TextStyle(color: Color(0xE6FFFFFF), fontSize: 11)),
+            Text('$count aktif gönderin var', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+            const SizedBox(height: 3),
+            const Text('Canlı durumlarını buradan takip edebilirsin.', style: TextStyle(color: Color(0xE6FFFFFF), fontSize: 11)),
           ])),
         ]),
       );
 
-  Widget _shipmentCard(_Shipment item) => InkWell(
-        onTap: () => _showShipment(item),
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 14, offset: Offset(0, 5))],
-          ),
-          child: Column(children: [
-            Row(children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(color: item.statusColor.withValues(alpha: .12), shape: BoxShape.circle),
-                child: Icon(item.icon, color: item.statusColor, size: 25),
-              ),
-              const SizedBox(width: 11),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(item.route, style: const TextStyle(color: navy, fontSize: 15, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 3),
-                Text('${item.id} • ${item.type}', style: const TextStyle(color: muted, fontSize: 10.5)),
-              ])),
-              Text(item.price, style: const TextStyle(color: blue, fontSize: 16, fontWeight: FontWeight.w900)),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                decoration: BoxDecoration(color: item.statusColor.withValues(alpha: .10), borderRadius: BorderRadius.circular(11)),
-                child: Row(children: [
-                  Icon(Icons.circle, size: 7, color: item.statusColor),
-                  const SizedBox(width: 5),
-                  Text(item.status, style: TextStyle(color: item.statusColor, fontSize: 10.5, fontWeight: FontWeight.w800)),
-                ]),
-              ),
-              const Spacer(),
-              Text(item.date, style: const TextStyle(color: muted, fontSize: 10.5)),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right_rounded, color: muted, size: 19),
-            ]),
+  Widget _shipmentCard(Map<String, dynamic> item) {
+    final status = (item['status'] ?? '').toString();
+    final color = _statusColor(status);
+    final route = '${item['pickup_address'] ?? ''} → ${item['dropoff_address'] ?? ''}';
+    final type = '${item['package_type'] ?? 'Paket'}${item['weight_label'] == null ? '' : ' • ${item['weight_label']}'}';
+    final price = item['estimated_price'] == null ? '—' : '₺${item['estimated_price']}';
+    final code = (item['public_code'] ?? '').toString();
+    return InkWell(
+      onTap: () => _showShipment(item),
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 14, offset: Offset(0, 5))]),
+        child: Column(children: [
+          Row(children: [
+            Container(width: 48, height: 48, decoration: BoxDecoration(color: color.withValues(alpha: .12), shape: BoxShape.circle), child: Icon(status == 'delivered' ? Icons.check_circle_rounded : Icons.local_shipping_rounded, color: color, size: 25)),
+            const SizedBox(width: 11),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(route, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: navy, fontSize: 15, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 3),
+              Text('$code • $type', style: const TextStyle(color: muted, fontSize: 10.5)),
+            ])),
+            Text(price, style: const TextStyle(color: blue, fontSize: 16, fontWeight: FontWeight.w900)),
           ]),
-        ),
-      );
+          const SizedBox(height: 12),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(color: color.withValues(alpha: .10), borderRadius: BorderRadius.circular(11)),
+              child: Row(children: [Icon(Icons.circle, size: 7, color: color), const SizedBox(width: 5), Text(_statusLabel(status), style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w800))]),
+            ),
+            const Spacer(),
+            Text(_dateLabel(item['created_at']), style: const TextStyle(color: muted, fontSize: 10.5)),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, color: muted, size: 19),
+          ]),
+        ]),
+      ),
+    );
+  }
 
-  void _showShipment(_Shipment item) {
+  void _showShipment(Map<String, dynamic> item) {
+    final status = (item['status'] ?? '').toString();
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -218,37 +215,15 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${item.id} • ${item.status}', style: const TextStyle(fontSize: 20, color: navy, fontWeight: FontWeight.w900)),
+          Text('${item['public_code'] ?? ''} • ${_statusLabel(status)}', style: const TextStyle(fontSize: 20, color: navy, fontWeight: FontWeight.w900)),
           const SizedBox(height: 12),
-          Text(item.route, style: const TextStyle(fontSize: 16, color: navy, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
-          Text('${item.type} • ${item.date} • ${item.price}', style: const TextStyle(color: muted)),
+          Text('${item['pickup_address'] ?? ''}\n→ ${item['dropoff_address'] ?? ''}', style: const TextStyle(fontSize: 15, color: navy, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Text('${item['package_type'] ?? 'Paket'} • ${item['weight_label'] ?? 'Ağırlık belirtilmedi'} • ${item['payment_type'] == 'online' ? 'Online' : 'Nakit'} • ${item['estimated_price'] == null ? '—' : '₺${item['estimated_price']}'}', style: const TextStyle(color: muted)),
           const SizedBox(height: 20),
           SizedBox(width: double.infinity, child: FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Kapat'))),
         ]),
       ),
     );
   }
-}
-
-class _Shipment {
-  const _Shipment({
-    required this.id,
-    required this.route,
-    required this.date,
-    required this.status,
-    required this.price,
-    required this.type,
-    required this.icon,
-    required this.statusColor,
-  });
-
-  final String id;
-  final String route;
-  final String date;
-  final String status;
-  final String price;
-  final String type;
-  final IconData icon;
-  final Color statusColor;
 }
