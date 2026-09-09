@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CourierActiveJobPage extends StatefulWidget {
   final String pickup;
@@ -27,7 +29,10 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
   static const navy = Color(0xFF10213E);
   static const muted = Color(0xFF718198);
   static const green = Color(0xFF10B866);
+
   int step = 0;
+  Position? currentPosition;
+  bool locating = false;
 
   String get actionLabel => switch (step) {
         0 => 'Alım Noktasına Git',
@@ -36,34 +41,35 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
         _ => 'Teslim Ettim',
       };
 
+  String get activeTarget => step >= 2 ? widget.dropoff : widget.pickup;
+  String get activeTargetTitle => step >= 2 ? 'Teslimat Adresi' : 'Alım Noktası';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5FAFF),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _topBar(),
-                  const SizedBox(height: 18),
-                  _hero(),
-                  const SizedBox(height: 20),
-                  _progress(),
-                  const SizedBox(height: 22),
-                  _mapCard(),
-                  const SizedBox(height: 18),
-                  _shipmentCard(),
-                  const SizedBox(height: 16),
-                  _customerCard(),
-                ]),
-              ),
+        child: Column(children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _topBar(),
+                const SizedBox(height: 18),
+                _hero(),
+                const SizedBox(height: 20),
+                _progress(),
+                const SizedBox(height: 22),
+                _mapCard(),
+                const SizedBox(height: 18),
+                _shipmentCard(),
+                const SizedBox(height: 16),
+                _customerCard(),
+              ]),
             ),
-            _bottomAction(),
-          ],
-        ),
+          ),
+          _bottomAction(),
+        ]),
       ),
     );
   }
@@ -101,13 +107,7 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
               Text('Evrakı alım noktasından teslim al\nve teslimat adresine ulaştır.', style: TextStyle(color: muted, fontSize: 17, height: 1.35, fontWeight: FontWeight.w500)),
             ]),
           ),
-          Positioned(
-            right: -12,
-            bottom: -5,
-            width: 185,
-            height: 185,
-            child: Image.asset('assets/images/kurye_header_hd.png', fit: BoxFit.contain),
-          ),
+          Positioned(right: -12, bottom: -5, width: 185, height: 185, child: Image.asset('assets/images/kurye_header_hd.png', fit: BoxFit.contain)),
         ]),
       );
 
@@ -115,42 +115,58 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
     const labels = ['Alım Noktasına Git', 'Teslim Aldım', 'Teslimat Adresine Git', 'Teslim Ettim'];
     return Row(children: [
       for (int i = 0; i < 4; i++) ...[
-        Expanded(
-          child: Column(children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(color: i <= step ? blue : const Color(0xFFF2F7FC), shape: BoxShape.circle, border: Border.all(color: i <= step ? blue : const Color(0xFFC8D9EA), width: 2)),
-              child: i <= step ? const Icon(Icons.check_rounded, color: Colors.white, size: 19) : null,
-            ),
-            const SizedBox(height: 7),
-            Text(labels[i], textAlign: TextAlign.center, style: TextStyle(color: i <= step ? blue : muted, fontSize: 9.5, fontWeight: i <= step ? FontWeight.w900 : FontWeight.w600)),
-          ]),
-        ),
+        Expanded(child: Column(children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: i <= step ? blue : const Color(0xFFF2F7FC), shape: BoxShape.circle, border: Border.all(color: i <= step ? blue : const Color(0xFFC8D9EA), width: 2)),
+            child: i <= step ? const Icon(Icons.check_rounded, color: Colors.white, size: 19) : null,
+          ),
+          const SizedBox(height: 7),
+          Text(labels[i], textAlign: TextAlign.center, style: TextStyle(color: i <= step ? blue : muted, fontSize: 9.5, fontWeight: i <= step ? FontWeight.w900 : FontWeight.w600)),
+        ])),
         if (i < 3) Container(width: 20, height: 2, color: i < step ? blue : const Color(0xFFD4E1EE)),
       ],
     ]);
   }
 
-  Widget _mapCard() => Container(
-        height: 310,
-        decoration: BoxDecoration(color: const Color(0xFFEAF4F9), borderRadius: BorderRadius.circular(28), boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 18, offset: Offset(0, 6))]),
-        child: Stack(children: [
-          Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(28), child: CustomPaint(painter: _MapPainter()))),
-          const Positioned(left: 26, top: 84, child: Text('Şişli', style: TextStyle(color: Color(0xFF60728B), fontSize: 21, fontWeight: FontWeight.w900))),
-          const Positioned(left: 185, top: 160, child: Text('Mecidiyeköy', style: TextStyle(color: Color(0xFF60728B), fontSize: 22, fontWeight: FontWeight.w900))),
-          Positioned(
-            right: 24,
-            top: 30,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 12)]),
-              child: Row(children: [const Icon(Icons.location_on_rounded, color: blue), const SizedBox(width: 8), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Alım Noktası', style: TextStyle(color: navy, fontWeight: FontWeight.w900)), Text('${widget.pickupKm} • yaklaşık 4 dk', style: const TextStyle(color: muted, fontSize: 11))])]),
+  Widget _mapCard() => InkWell(
+        onTap: () => _showNavigationSheet(step >= 2),
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          height: 310,
+          decoration: BoxDecoration(color: const Color(0xFFEAF4F9), borderRadius: BorderRadius.circular(28), boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 18, offset: Offset(0, 6))]),
+          child: Stack(children: [
+            Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(28), child: CustomPaint(painter: _MapPainter()))),
+            const Positioned(left: 26, top: 84, child: Text('Şişli', style: TextStyle(color: Color(0xFF60728B), fontSize: 21, fontWeight: FontWeight.w900))),
+            const Positioned(left: 185, top: 160, child: Text('Mecidiyeköy', style: TextStyle(color: Color(0xFF60728B), fontSize: 22, fontWeight: FontWeight.w900))),
+            Positioned(
+              right: 24,
+              top: 30,
+              left: 24,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 12)]),
+                child: Row(children: [
+                  Icon(Icons.location_on_rounded, color: step >= 2 ? const Color(0xFFFF4757) : blue),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(activeTargetTitle, style: const TextStyle(color: navy, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 3),
+                    Text(activeTarget, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: muted, fontSize: 11)),
+                  ])),
+                  const Icon(Icons.chevron_right_rounded, color: blue),
+                ]),
+              ),
             ),
-          ),
-          const Positioned(left: 150, top: 118, child: CircleAvatar(radius: 24, backgroundColor: blue, child: Icon(Icons.navigation_rounded, color: Colors.white, size: 28))),
-          Positioned(right: 18, bottom: 18, child: CircleAvatar(radius: 26, backgroundColor: Colors.white, child: const Icon(Icons.navigation_rounded, color: blue))),
-        ]),
+            Positioned(
+              left: 145,
+              top: 136,
+              child: CircleAvatar(radius: 25, backgroundColor: blue.withValues(alpha: .18), child: const CircleAvatar(radius: 17, backgroundColor: blue, child: Icon(Icons.my_location_rounded, color: Colors.white, size: 20))),
+            ),
+            Positioned(right: 18, bottom: 18, child: CircleAvatar(radius: 26, backgroundColor: Colors.white, child: IconButton(onPressed: () => _showNavigationSheet(step >= 2), icon: const Icon(Icons.navigation_rounded, color: blue)))),
+          ]),
+        ),
       );
 
   Widget _shipmentCard() => Container(
@@ -174,9 +190,9 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
             ]),
           ),
           const SizedBox(height: 14),
-          _address(Icons.location_on_rounded, blue, 'Alım Adresi', widget.pickup),
+          _address(Icons.location_on_rounded, blue, 'Alım Adresi', widget.pickup, false),
           const Divider(height: 24, color: Color(0xFFE7EEF5)),
-          _address(Icons.location_on_rounded, const Color(0xFFFF4757), 'Teslimat Adresi', widget.dropoff),
+          _address(Icons.location_on_rounded, const Color(0xFFFF4757), 'Teslimat Adresi', widget.dropoff, true),
           const SizedBox(height: 15),
           Row(children: [
             Expanded(child: _metric(Icons.route_rounded, widget.pickupKm, 'Alımına Uzaklık')),
@@ -188,11 +204,11 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
         ]),
       );
 
-  Widget _address(IconData icon, Color color, String title, String value) => Row(children: [
+  Widget _address(IconData icon, Color color, String title, String value, bool delivery) => Row(children: [
         Icon(icon, color: color),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(color: navy, fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text(value, style: const TextStyle(color: muted, fontSize: 12))])),
-        TextButton.icon(onPressed: () {}, icon: const Icon(Icons.navigation_rounded, size: 17), label: const Text('Haritada Aç')),
+        TextButton.icon(onPressed: () => _showNavigationSheet(delivery), icon: const Icon(Icons.navigation_rounded, size: 17), label: const Text('Haritada Aç')),
       ]);
 
   Widget _metric(IconData icon, String value, String label) => Container(
@@ -222,18 +238,123 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
           child: FilledButton.icon(
             onPressed: _advance,
-            icon: Icon(step == 3 ? Icons.check_rounded : Icons.navigation_rounded),
+            icon: Icon(step == 3 ? Icons.check_rounded : step == 1 ? Icons.inventory_2_outlined : Icons.navigation_rounded),
             label: Text(actionLabel),
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(62), backgroundColor: step == 1 || step == 3 ? green : blue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)), textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
           ),
         ),
       );
 
-  void _advance() {
-    if (step < 3) {
-      setState(() => step++);
+  Future<void> _advance() async {
+    if (step == 0) {
+      await _showNavigationSheet(false);
       return;
     }
+    if (step == 1) {
+      setState(() => step = 2);
+      return;
+    }
+    if (step == 2) {
+      await _showNavigationSheet(true);
+      return;
+    }
+    _completeJob();
+  }
+
+  Future<Position?> _getCurrentLocation() async {
+    if (locating) return currentPosition;
+    setState(() => locating = true);
+    try {
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum servisini açman gerekiyor.')));
+        return null;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum izni verilmedi.')));
+        return null;
+      }
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      if (mounted) setState(() => currentPosition = pos);
+      return pos;
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Konum alınamadı.')));
+      return null;
+    } finally {
+      if (mounted) setState(() => locating = false);
+    }
+  }
+
+  Future<void> _openNavigation(String destination) async {
+    final pos = currentPosition ?? await _getCurrentLocation();
+    final encoded = Uri.encodeComponent(destination);
+    final origin = pos == null ? '' : '&origin=${pos.latitude},${pos.longitude}';
+    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$encoded$origin&travelmode=driving');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Navigasyon açılamadı.')));
+    }
+  }
+
+  Future<void> _showNavigationSheet(bool delivery) async {
+    final address = delivery ? widget.dropoff : widget.pickup;
+    final title = delivery ? 'Teslimat Adresi' : 'Alım Noktası';
+    await _getCurrentLocation();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 22),
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: Container(width: 58, height: 5, decoration: BoxDecoration(color: const Color(0xFFD1D9E3), borderRadius: BorderRadius.circular(10)))),
+            const SizedBox(height: 18),
+            Row(children: [
+              CircleAvatar(radius: 25, backgroundColor: (delivery ? const Color(0xFFFF4757) : blue).withValues(alpha: .10), child: Icon(Icons.location_on_rounded, color: delivery ? const Color(0xFFFF4757) : blue)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(color: navy, fontSize: 20, fontWeight: FontWeight.w900)), const SizedBox(height: 4), Text(address, style: const TextStyle(color: muted, fontSize: 13, height: 1.35))])),
+            ]),
+            const SizedBox(height: 18),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: const Color(0xFFF1F8FF), borderRadius: BorderRadius.circular(18)),
+              child: Row(children: [
+                const Icon(Icons.my_location_rounded, color: blue),
+                const SizedBox(width: 10),
+                Expanded(child: Text(currentPosition == null ? 'Mevcut konum alınamadı' : 'Konumun hazır • GPS aktif', style: const TextStyle(color: navy, fontWeight: FontWeight.w800))),
+                if (locating) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+              ]),
+            ),
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              onPressed: () => _openNavigation(address),
+              icon: const Icon(Icons.navigation_rounded),
+              label: const Text('Navigasyonu Başlat'),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58), backgroundColor: blue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)), textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(sheetContext);
+                setState(() => step = delivery ? 3 : 1);
+              },
+              icon: const Icon(Icons.check_circle_outline_rounded),
+              label: Text(delivery ? 'Teslimat Noktasına Vardım' : 'Alım Noktasına Vardım'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(54), foregroundColor: navy, side: const BorderSide(color: Color(0xFFC9DBEC)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(27)), textStyle: const TextStyle(fontWeight: FontWeight.w900)),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _completeJob() {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
@@ -253,7 +374,10 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
       builder: (_) => AlertDialog(
         title: const Text('İşi iptal etmek istiyor musun?'),
         content: const Text('İptal edilen iş tekrar iş havuzuna dönecek.'),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')), FilledButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF4C4C)), child: const Text('İptal Et'))],
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
+          FilledButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF4C4C)), child: const Text('İptal Et')),
+        ],
       ),
     );
   }
