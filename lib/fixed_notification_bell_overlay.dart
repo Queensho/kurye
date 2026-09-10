@@ -48,6 +48,9 @@ class _NotificationBell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = AppDataService.instance;
+    final isCustomer = audience == 'customer';
+    final bellColor = isCustomer ? const Color(0xFF171052) : const Color(0xFF168CF5);
+    final badgeColor = isCustomer ? const Color(0xFFFF5A1F) : const Color(0xFFFF4D67);
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: data.client
           .from('announcements')
@@ -62,54 +65,33 @@ class _NotificationBell extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(17),
             child: Container(
-              width: 48,
-              height: 48,
+              width: 49,
+              height: 49,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .96),
-                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: .97),
+                borderRadius: BorderRadius.circular(17),
                 boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x22000000),
-                    blurRadius: 14,
-                    offset: Offset(0, 5),
-                  ),
+                  BoxShadow(color: Color(0x1B100A39), blurRadius: 16, offset: Offset(0, 6)),
                 ],
               ),
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  const Center(
-                    child: Icon(
-                      Icons.notifications_none_rounded,
-                      color: Color(0xFF168CF5),
-                      size: 27,
-                    ),
-                  ),
+                  Center(child: Icon(Icons.notifications_none_rounded, color: bellColor, size: 27)),
                   if (count > 0)
                     Positioned(
-                      right: -2,
-                      top: -3,
+                      right: 4,
+                      top: 3,
                       child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 19,
-                          minHeight: 19,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        constraints: const BoxConstraints(minWidth: 12, minHeight: 12),
+                        padding: count > 1 ? const EdgeInsets.symmetric(horizontal: 3) : EdgeInsets.zero,
                         alignment: Alignment.center,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFF4D67),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          count > 9 ? '9+' : '$count',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
+                        decoration: BoxDecoration(color: badgeColor, shape: BoxShape.circle),
+                        child: count > 1
+                            ? Text(count > 9 ? '9+' : '$count', style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900))
+                            : null,
                       ),
                     ),
                 ],
