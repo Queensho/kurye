@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'courier_search_page.dart';
 import 'create_shipment_page_v2.dart';
 import 'customer_live_tracking_page.dart';
 import 'data/app_data_service.dart';
@@ -240,8 +241,13 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
 
     return InkWell(
       onTap: () {
-        if (active) {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => CustomerLiveTrackingPage(shipmentId: item['id'].toString())));
+        final id = item['id']?.toString();
+        if (id == null || id.isEmpty) return;
+
+        if (status == 'searching') {
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => CourierSearchPage(shipmentId: id)));
+        } else if (active) {
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => CustomerLiveTrackingPage(shipmentId: id)));
         } else {
           _showShipment(item);
         }
@@ -274,9 +280,9 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
                 ),
                 const Spacer(),
                 if (active) ...[
-                  Icon(Icons.my_location_rounded, color: orange, size: 18 * s),
+                  Icon(status == 'searching' ? Icons.search_rounded : Icons.my_location_rounded, color: orange, size: 18 * s),
                   SizedBox(width: 5 * s),
-                  Text('Canlı Takip', style: TextStyle(color: orange, fontSize: 10 * s, fontWeight: FontWeight.w900)),
+                  Text(status == 'searching' ? 'Kurye Aranıyor' : 'Canlı Takip', style: TextStyle(color: orange, fontSize: 10 * s, fontWeight: FontWeight.w900)),
                 ] else
                   Text(_dateLabel(item['created_at']), style: TextStyle(color: muted, fontSize: 9 * s)),
               ]),
