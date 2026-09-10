@@ -83,10 +83,10 @@ class HomePixelPreview extends StatelessWidget {
               ]),
             ),
             Positioned(
-              right: -38 * s,
-              top: 20 * v,
-              width: 300 * s,
-              height: 275 * v,
+              right: -52 * s,
+              bottom: 0,
+              width: 338 * s,
+              height: 252 * v,
               child: Image.asset(
                 'assets/images/3d_kurye.png',
                 fit: BoxFit.contain,
