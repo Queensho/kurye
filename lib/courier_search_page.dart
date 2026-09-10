@@ -19,19 +19,20 @@ class CourierSearchPage extends StatefulWidget {
 class _CourierSearchPageState extends State<CourierSearchPage> {
   static const orange = Color(0xFFFF5A1F);
   static const navy = Color(0xFF171052);
-  static const purple = Color(0xFF261168);
   static const muted = Color(0xFF77758A);
   static const bg = Color(0xFFF7F7FA);
   static const soft = Color(0xFFF3F1FA);
 
   final data = AppDataService.instance;
   StreamSubscription<Map<String, dynamic>>? shipmentSub;
+  Timer? testStageTimer;
   Map<String, dynamic> shipment = {};
   String? shipmentId;
   bool openingCourier = false;
   bool loading = true;
   bool cancelling = false;
   String? error;
+  int testStage = 0;
 
   @override
   void initState() {
@@ -68,6 +69,7 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
       setState(() => loading = false);
       _listenShipment(shipmentId!);
       _maybeOpenCourier(shipment);
+      _startTestStages();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -75,6 +77,19 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
         error = e.toString().replaceFirst('Bad state: ', '');
       });
     }
+  }
+
+  void _startTestStages() {
+    testStageTimer?.cancel();
+    testStage = 0;
+    testStageTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted) return;
+      if (testStage >= 3) {
+        timer.cancel();
+        return;
+      }
+      setState(() => testStage++);
+    });
   }
 
   void _listenShipment(String id) {
@@ -88,6 +103,7 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
   void _maybeOpenCourier(Map<String, dynamic> row) {
     final courierId = row['courier_id']?.toString();
     if (openingCourier || courierId == null || courierId.isEmpty || shipmentId == null) return;
+    testStageTimer?.cancel();
     openingCourier = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -134,6 +150,7 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
 
   @override
   void dispose() {
+    testStageTimer?.cancel();
     shipmentSub?.cancel();
     super.dispose();
   }
@@ -214,7 +231,7 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
         Positioned(right: -72 * s, top: -64 * s, width: 300 * s, height: 260 * s, child: Image.asset('assets/images/3d_kurye.png', fit: BoxFit.contain, alignment: Alignment.bottomRight, filterQuality: FilterQuality.high)),
         Positioned(left: 17 * s, top: 16 * s, child: InkWell(onTap: () => Navigator.of(context).pop(), borderRadius: BorderRadius.circular(14 * s), child: Container(width: 42 * s, height: 42 * s, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14 * s), boxShadow: const [BoxShadow(color: Color(0x0B000000), blurRadius: 10)]), child: Icon(Icons.arrow_back_rounded, color: navy, size: 25 * s)))),
         Positioned(left: 22 * s, bottom: 24 * s, width: 175 * s, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Kurye\nAranıyor', style: TextStyle(color: navy, fontSize: 31 * s, height: .95, fontWeight: FontWeight.w900, letterSpacing: -1.1)), SizedBox(height: 8 * s), Text('Sana en yakın ve uygun kuryeler\nkontrol ediliyor.', style: TextStyle(color: muted, fontSize: 11.5 * s, height: 1.3, fontWeight: FontWeight.w500))])),
-        Positioned(right: 17 * s, top: 50 * s, child: Container(padding: EdgeInsets.symmetric(horizontal: 11 * s, vertical: 9 * s), decoration: BoxDecoration(color: orange, borderRadius: BorderRadius.circular(12 * s)), child: Text('Sana en yakın\nkurye yolda!', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 10.5 * s, height: 1.2, fontWeight: FontWeight.w800)))),
+        Positioned(right: 17 * s, top: 50 * s, child: Container(padding: EdgeInsets.symmetric(horizontal: 11 * s, vertical: 9 * s), decoration: BoxDecoration(color: orange, borderRadius: BorderRadius.circular(12 * s)), child: Text('Test akışı\notomatik ilerliyor', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 10.5 * s, height: 1.2, fontWeight: FontWeight.w800)))),
       ]),
     );
   }
@@ -227,9 +244,17 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
       padding: EdgeInsets.fromLTRB(14 * s, 12 * s, 14 * s, 8 * s),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * s), boxShadow: const [BoxShadow(color: Color(0x0A171052), blurRadius: 16, offset: Offset(0, 5))]),
       child: Column(children: [
-        Row(children: [for (int i = 0; i < 4; i++) ...[Container(width: 18 * s, height: 18 * s, decoration: BoxDecoration(color: i == 0 ? orange : const Color(0xFFD6D3E8), shape: BoxShape.circle), child: i == 0 ? Icon(Icons.circle, color: Colors.white, size: 5 * s) : null), if (i < 3) Expanded(child: Container(height: 2 * s, color: i == 0 ? const Color(0xFFFFB39A) : const Color(0xFFE1DFEA)))]]),
+        Row(children: [for (int i = 0; i < 4; i++) ...[
+          Container(
+            width: 18 * s,
+            height: 18 * s,
+            decoration: BoxDecoration(color: i <= testStage ? orange : const Color(0xFFD6D3E8), shape: BoxShape.circle),
+            child: i < testStage ? Icon(Icons.check_rounded, color: Colors.white, size: 12 * s) : (i == testStage ? Icon(Icons.circle, color: Colors.white, size: 5 * s) : null),
+          ),
+          if (i < 3) Expanded(child: Container(height: 2 * s, color: i < testStage ? orange : (i == testStage ? const Color(0xFFFFB39A) : const Color(0xFFE1DFEA))))
+        ]]),
         SizedBox(height: 8 * s),
-        Row(children: [for (int i = 0; i < labels.length; i++) Expanded(child: Text(labels[i], textAlign: TextAlign.center, maxLines: 1, style: TextStyle(color: i == 0 ? navy : muted, fontSize: 8.6 * s, fontWeight: i == 0 ? FontWeight.w800 : FontWeight.w600)))]),
+        Row(children: [for (int i = 0; i < labels.length; i++) Expanded(child: Text(labels[i], textAlign: TextAlign.center, maxLines: 1, style: TextStyle(color: i <= testStage ? navy : muted, fontSize: 8.6 * s, fontWeight: i == testStage ? FontWeight.w800 : FontWeight.w600)))]),
       ]),
     );
   }
@@ -238,13 +263,14 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
     final pickupLat = _num(shipment['pickup_lat']);
     final pickupLng = _num(shipment['pickup_lng']);
     final center = pickupLat != null && pickupLng != null ? LatLng(pickupLat, pickupLng) : const LatLng(41.0082, 28.9784);
+    const testMessages = ['Kurye aranıyor...', 'Kurye bulundu.', 'Kurye yola çıkıyor.', 'Teslimat aşaması test ediliyor.'];
     return ClipRRect(
       borderRadius: BorderRadius.circular(18 * s),
       child: SizedBox(
         height: 294 * s,
         child: Stack(children: [
           Positioned.fill(child: FlutterMap(options: MapOptions(initialCenter: center, initialZoom: pickupLat == null ? 11 : 12.7, minZoom: 5, maxZoom: 18, interactionOptions: const InteractionOptions(flags: InteractiveFlag.none)), children: [TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.queensho.kurye'), if (pickupLat != null && pickupLng != null) MarkerLayer(markers: [Marker(point: center, width: 84 * s, height: 84 * s, child: Container(decoration: BoxDecoration(shape: BoxShape.circle, color: orange.withValues(alpha: .14)), alignment: Alignment.center, child: Container(width: 56 * s, height: 56 * s, decoration: BoxDecoration(shape: BoxShape.circle, color: orange.withValues(alpha: .22)), alignment: Alignment.center, child: Container(width: 31 * s, height: 31 * s, decoration: const BoxDecoration(shape: BoxShape.circle, color: orange), child: Icon(Icons.location_on_rounded, color: Colors.white, size: 19 * s)))))] )])),
-          Positioned(left: 0, right: 0, bottom: 12 * s, child: Center(child: Container(padding: EdgeInsets.symmetric(horizontal: 12 * s, vertical: 8 * s), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * s), boxShadow: const [BoxShadow(color: Color(0x16000000), blurRadius: 12)]), child: Row(mainAxisSize: MainAxisSize.min, children: [Container(width: 19 * s, height: 19 * s, decoration: const BoxDecoration(color: orange, shape: BoxShape.circle), child: Icon(Icons.bolt_rounded, color: Colors.white, size: 13 * s)), SizedBox(width: 7 * s), Text('Kurye işi aldığında anında burada görünecek.', style: TextStyle(color: navy, fontSize: 8.8 * s, fontWeight: FontWeight.w700))])))),
+          Positioned(left: 0, right: 0, bottom: 12 * s, child: Center(child: Container(padding: EdgeInsets.symmetric(horizontal: 12 * s, vertical: 8 * s), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * s), boxShadow: const [BoxShadow(color: Color(0x16000000), blurRadius: 12)]), child: Row(mainAxisSize: MainAxisSize.min, children: [Container(width: 19 * s, height: 19 * s, decoration: const BoxDecoration(color: orange, shape: BoxShape.circle), child: Icon(Icons.bolt_rounded, color: Colors.white, size: 13 * s)), SizedBox(width: 7 * s), Text(testMessages[testStage], style: TextStyle(color: navy, fontSize: 8.8 * s, fontWeight: FontWeight.w700))])))),
           Positioned(right: 10 * s, top: 10 * s, child: Container(width: 42 * s, padding: EdgeInsets.symmetric(vertical: 5 * s), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(13 * s), boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 10)]), child: Column(children: [Icon(Icons.my_location_rounded, color: navy, size: 20 * s), SizedBox(height: 10 * s), Icon(Icons.layers_outlined, color: navy, size: 20 * s), SizedBox(height: 10 * s), Icon(Icons.navigation_rounded, color: navy, size: 20 * s)]))),
         ]),
       ),
@@ -277,5 +303,5 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
 
   Widget _cancelButton(double s) => SizedBox(width: double.infinity, height: 50 * s, child: OutlinedButton(onPressed: cancelling ? null : _cancelShipment, style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFFF5E5E)), foregroundColor: const Color(0xFFFF4D4D), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14 * s))), child: cancelling ? SizedBox(width: 20 * s, height: 20 * s, child: const CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF4D4D))) : Text('İptal Et', style: TextStyle(fontSize: 13 * s, fontWeight: FontWeight.w900))));
 
-  Widget _securityCard(double s) => Container(padding: EdgeInsets.all(13 * s), decoration: BoxDecoration(color: const Color(0xFFF2EFFF), borderRadius: BorderRadius.circular(15 * s)), child: Row(children: [Container(width: 38 * s, height: 38 * s, decoration: BoxDecoration(color: Colors.white.withValues(alpha: .65), borderRadius: BorderRadius.circular(12 * s)), child: Icon(Icons.shield_outlined, color: navy, size: 23 * s)), SizedBox(width: 11 * s), Expanded(child: Text('Sana en uygun kurye işi alana kadar aramaya devam ediyoruz.', style: TextStyle(color: muted, fontSize: 10.5 * s, height: 1.35, fontWeight: FontWeight.w600)))]));
+  Widget _securityCard(double s) => Container(padding: EdgeInsets.all(13 * s), decoration: BoxDecoration(color: const Color(0xFFF2EFFF), borderRadius: BorderRadius.circular(15 * s)), child: Row(children: [Container(width: 38 * s, height: 38 * s, decoration: BoxDecoration(color: Colors.white.withValues(alpha: .65), borderRadius: BorderRadius.circular(12 * s)), child: Icon(Icons.shield_outlined, color: navy, size: 23 * s)), SizedBox(width: 11 * s), Expanded(child: Text('Test modunda aşamalar otomatik ilerliyor. Gerçek kurye işi aldığında gerçek akış devralır.', style: TextStyle(color: muted, fontSize: 10.5 * s, height: 1.35, fontWeight: FontWeight.w600)))]));
 }
