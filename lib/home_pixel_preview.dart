@@ -26,49 +26,69 @@ class HomePixelPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: bg,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _hero(context),
-                    Transform.translate(
-                      offset: const Offset(0, -28),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
-                        child: _destinationCard(context),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final height = constraints.maxHeight;
+          final scale = width >= 520
+              ? 0.78
+              : (width / 430).clamp(0.84, 1.0).toDouble();
+
+          return ClipRect(
+            child: Transform.scale(
+              scale: scale,
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: width / scale,
+                height: height / scale,
+                child: SafeArea(
+                  bottom: false,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.only(bottom: 18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _hero(context),
+                              Transform.translate(
+                                offset: const Offset(0, -28),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                                  child: _destinationCard(context),
+                                ),
+                              ),
+                              Transform.translate(
+                                offset: const Offset(0, -10),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                                  child: _quickActions(context),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 18),
+                                child: _promo(context),
+                              ),
+                              const SizedBox(height: 24),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 18),
+                                child: _recent(context),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    Transform.translate(
-                      offset: const Offset(0, -10),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
-                        child: _quickActions(context),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                      child: _promo(context),
-                    ),
-                    const SizedBox(height: 24),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                      child: _recent(context),
-                    ),
-                  ],
+                      _bottomNav(context),
+                    ],
+                  ),
                 ),
               ),
             ),
-            _bottomNav(context),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
