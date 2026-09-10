@@ -73,9 +73,6 @@ class HomePixelPreview extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             Container(color: const Color(0xFFFAFAFD)),
-            Positioned(right: -64 * s, top: -122 * v, child: Container(width: 290 * s, height: 290 * s, decoration: const BoxDecoration(color: purple, shape: BoxShape.circle))),
-            Positioned(right: -30 * s, top: -95 * v, child: Container(width: 224 * s, height: 224 * s, decoration: const BoxDecoration(color: orange, shape: BoxShape.circle))),
-            Positioned(left: -44 * s, top: -110 * v, child: Transform.rotate(angle: -.22, child: Container(width: 88 * s, height: 274 * v, decoration: BoxDecoration(color: orange.withValues(alpha: .42), borderRadius: BorderRadius.circular(60 * s))))),
             Positioned(
               left: 22 * s,
               top: 12 * v,
@@ -86,10 +83,10 @@ class HomePixelPreview extends StatelessWidget {
               ]),
             ),
             Positioned(
-              right: -10 * s,
-              top: 42 * v,
-              width: 218 * s,
-              height: 225 * v,
+              right: -38 * s,
+              top: 20 * v,
+              width: 300 * s,
+              height: 275 * v,
               child: Image.asset(
                 'assets/images/3d_kurye.png',
                 fit: BoxFit.contain,
