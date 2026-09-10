@@ -64,8 +64,8 @@ class AddressPickerPage extends StatefulWidget {
 }
 
 class _AddressPickerPageState extends State<AddressPickerPage> {
-  static const blue = Color(0xFF168CF5);
-  static const navy = Color(0xFF10182D);
+  static const blue = Color(0xFFFF5A1F);
+  static const navy = Color(0xFF171052);
   static const turkeyCenter = LatLng(39.0, 35.0);
   static const locationIqKey = String.fromEnvironment('LOCATIONIQ_API_KEY');
 
@@ -503,7 +503,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     final initialCenter = selected?.point ?? turkeyCenter;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FBFF),
+      backgroundColor: const Color(0xFFF7F7FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
@@ -560,7 +560,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                         ],
                       ),
                 filled: true,
-                fillColor: const Color(0xFFF2F7FD),
+                fillColor: const Color(0xFFF3F1FA),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
@@ -715,7 +715,7 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: blue,
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: const Color(0xFFB7C7D8),
+                        disabledBackgroundColor: const Color(0xFFD8D6E2),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),
                         ),
