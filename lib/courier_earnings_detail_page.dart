@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'data/app_data_service.dart';
@@ -11,8 +12,8 @@ class CourierEarningsDetailPage extends StatefulWidget {
 }
 
 class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
-  static const purple = Color(0xFF5520D7);
-  static const purple2 = Color(0xFF7B2CF2);
+  static const purple = Color(0xFF5620D9);
+  static const purple2 = Color(0xFF7C2CF2);
   static const navy = Color(0xFF171052);
   static const muted = Color(0xFF817E9B);
   static const bg = Color(0xFFF7F7FB);
@@ -20,8 +21,8 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
   static const orange = Color(0xFFFF7B36);
 
   final data = AppDataService.instance;
-  Map<String, dynamic> summary = {};
   int selectedTab = 0;
+  Map<String, dynamic> summary = {};
 
   @override
   void initState() {
@@ -31,31 +32,35 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
 
   Future<void> _load() async {
     try {
-      final value = await data.getCourierEarningsSummary();
-      if (mounted) setState(() => summary = Map<String, dynamic>.from(value));
+      final result = await data.getCourierEarningsSummary();
+      if (!mounted) return;
+      setState(() => summary = Map<String, dynamic>.from(result));
     } catch (_) {}
   }
 
-  double _n(String key) => (summary[key] as num?)?.toDouble() ?? 0;
-
-  String _money(num value) =>
-      '₺${value.toDouble().toStringAsFixed(2).replaceAll('.', ',')}';
+  double n(String key) => (summary[key] as num?)?.toDouble() ?? 0;
 
   DateTime? _date(dynamic raw) =>
       DateTime.tryParse((raw ?? '').toString())?.toLocal();
 
-  bool _sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
+  String money(num value) {
+    final v = value.toDouble();
+    final whole = v == v.roundToDouble();
+    return '₺${whole ? v.toInt() : v.toStringAsFixed(2).replaceAll('.', ',')}';
+  }
 
-  bool _inPeriod(Map<String, dynamic> row) {
+  bool _inSelectedPeriod(Map<String, dynamic> row) {
     final d = _date(row['created_at']);
     if (d == null) return false;
     final now = DateTime.now();
-    if (selectedTab == 0) return _sameDay(d, now);
+    if (selectedTab == 0) {
+      return d.year == now.year && d.month == now.month && d.day == now.day;
+    }
     if (selectedTab == 1) {
       final start = DateTime(now.year, now.month, now.day)
           .subtract(Duration(days: now.weekday - 1));
-      return !d.isBefore(start) && d.isBefore(start.add(const Duration(days: 7)));
+      final end = start.add(const Duration(days: 7));
+      return !d.isBefore(start) && d.isBefore(end);
     }
     return d.year == now.year && d.month == now.month;
   }
@@ -66,74 +71,71 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
       );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: bg,
-        body: SafeArea(
-          bottom: false,
-          child: LayoutBuilder(
-            builder: (context, c) {
-              final s = (c.maxWidth / 390).clamp(.90, 1.10).toDouble();
-              return StreamBuilder<List<Map<String, dynamic>>>(
-                stream: data.watchCourierEarnings(),
-                builder: (context, snap) {
-                  final all = snap.data ?? const <Map<String, dynamic>>[];
-                  final rows = all.where(_inPeriod).toList();
-                  final total = _total(rows);
-                  return Column(
-                    children: [
-                      Expanded(
-                        child: RefreshIndicator(
-                          onRefresh: _load,
-                          child: ListView(
-                            padding: EdgeInsets.zero,
-                            children: [
-                              _header(s),
-                              Transform.translate(
-                                offset: Offset(0, -4 * s),
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 12 * s),
-                                  child: Column(
-                                    children: [
-                                      _tabs(s),
-                                      SizedBox(height: 12 * s),
-                                      _summary(s, rows, total),
-                                      SizedBox(height: 18 * s),
-                                      _chart(s, rows),
-                                      SizedBox(height: 18 * s),
-                                      _distribution(s, rows, total),
-                                      SizedBox(height: 14 * s),
-                                      _goal(s, total),
-                                      SizedBox(height: 14 * s),
-                                      _tip(s),
-                                      SizedBox(height: 22 * s),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: bg,
+      body: SafeArea(
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final s = (c.maxWidth / 390).clamp(.90, 1.12).toDouble();
+            return StreamBuilder<List<Map<String, dynamic>>>(
+              stream: data.watchCourierEarnings(),
+              builder: (context, snap) {
+                final all = snap.data ?? const <Map<String, dynamic>>[];
+                final rows = all.where(_inSelectedPeriod).toList();
+                final total = _total(rows);
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        padding: EdgeInsets.zero,
+                        children: [
+                          _header(s),
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              12 * s,
+                              14 * s,
+                              12 * s,
+                              18 * s,
+                            ),
+                            child: Column(
+                              children: [
+                                _tabs(s),
+                                SizedBox(height: 16 * s),
+                                _summaryCard(s, rows, total),
+                                SizedBox(height: 21 * s),
+                                _hourlySection(s, rows),
+                                SizedBox(height: 22 * s),
+                                _distribution(s, total),
+                                SizedBox(height: 16 * s),
+                                _moreCard(s),
+                                SizedBox(height: 18 * s),
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                      _onlineButton(s),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
+                    ),
+                    _onlineButton(s),
+                  ],
+                );
+              },
+            );
+          },
         ),
-      );
+      ),
+    );
+  }
 
   Widget _header(double s) => Container(
-        height: 108 * s,
-        padding: EdgeInsets.fromLTRB(8 * s, 10 * s, 12 * s, 13 * s),
+        height: 84 * s,
+        padding: EdgeInsets.symmetric(horizontal: 14 * s),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF34107E), Color(0xFF4A20A9), Color(0xFF290B69)],
-          ),
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(25),
-            bottomRight: Radius.circular(25),
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [Color(0xFF32137D), Color(0xFF4B1DA2)],
           ),
         ),
         child: Row(
@@ -149,17 +151,20 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
                   'Kazanç Detayı',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 19 * s,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 20 * s,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
             ),
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 11 * s, vertical: 9 * s),
+              padding: EdgeInsets.symmetric(
+                horizontal: 12 * s,
+                vertical: 9 * s,
+              ),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: .10),
-                borderRadius: BorderRadius.circular(19 * s),
+                borderRadius: BorderRadius.circular(22 * s),
               ),
               child: Row(
                 children: [
@@ -167,11 +172,15 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
                       color: Colors.white, size: 17 * s),
                   SizedBox(width: 6 * s),
                   Text(
-                    selectedTab == 2 ? 'Bu Ay' : 'Bu Hafta',
+                    selectedTab == 0
+                        ? 'Bugün'
+                        : selectedTab == 1
+                            ? 'Bu Hafta'
+                            : 'Bu Ay',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10 * s,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13 * s,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
@@ -182,15 +191,12 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
       );
 
   Widget _tabs(double s) => Container(
-        height: 52 * s,
-        padding: EdgeInsets.all(4 * s),
+        height: 50 * s,
+        padding: EdgeInsets.all(3 * s),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(27 * s),
-          border: Border.all(color: const Color(0xFFE9E7F0)),
-          boxShadow: const [
-            BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 4)),
-          ],
+          border: Border.all(color: const Color(0xFFE9E7EF)),
         ),
         child: Row(
           children: [
@@ -201,181 +207,260 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
         ),
       );
 
-  Widget _tab(String text, int index, double s) => Expanded(
-        child: GestureDetector(
-          onTap: () => setState(() => selectedTab = index),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: selectedTab == index
-                  ? const LinearGradient(colors: [Color(0xFF6D2CFA), purple])
-                  : null,
-              borderRadius: BorderRadius.circular(23 * s),
-            ),
-            child: Text(
-              text,
-              style: TextStyle(
-                color: selectedTab == index ? Colors.white : muted,
-                fontSize: 11 * s,
-                fontWeight: FontWeight.w700,
-              ),
+  Widget _tab(String text, int index, double s) {
+    final active = selectedTab == index;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(23 * s),
+        onTap: () => setState(() => selectedTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: active
+                ? const LinearGradient(colors: [purple2, purple])
+                : null,
+            borderRadius: BorderRadius.circular(23 * s),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: active ? Colors.white : muted,
+              fontSize: 14 * s,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
-      );
-
-  Widget _summary(
-    double s,
-    List<Map<String, dynamic>> rows,
-    double total,
-  ) {
-    final average = rows.isEmpty ? 0.0 : total / rows.length;
-    final title = selectedTab == 0
-        ? 'Bugünkü Kazancın'
-        : selectedTab == 1
-            ? 'Bu Haftaki Kazancın'
-            : 'Bu Ayki Kazancın';
-    return _card(
-      s,
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(title,
-                  style: TextStyle(
-                      color: muted,
-                      fontSize: 12 * s,
-                      fontWeight: FontWeight.w700)),
-              SizedBox(width: 6 * s),
-              Icon(Icons.visibility_off_outlined, color: muted, size: 16 * s),
-              const Spacer(),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10 * s, vertical: 7 * s),
-                decoration: BoxDecoration(
-                    color: const Color(0xFFE7FAF0),
-                    borderRadius: BorderRadius.circular(18 * s)),
-                child: Text('↑ %18',
-                    style: TextStyle(
-                        color: green,
-                        fontSize: 10.5 * s,
-                        fontWeight: FontWeight.w900)),
-              ),
-            ],
-          ),
-          SizedBox(height: 3 * s),
-          Text(_money(total),
-              style: TextStyle(
-                  color: navy,
-                  fontSize: 31 * s,
-                  height: 1.05,
-                  fontWeight: FontWeight.w900)),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text('Düne göre',
-                style: TextStyle(color: muted, fontSize: 8 * s)),
-          ),
-          SizedBox(height: 12 * s),
-          const Divider(height: 1, color: Color(0xFFEFEDF4)),
-          SizedBox(height: 12 * s),
-          Row(
-            children: [
-              Expanded(
-                  child: _mini(Icons.inventory_2_rounded, purple, 'Teslimat',
-                      '${rows.length}', s)),
-              _vline(s),
-              Expanded(
-                  child: _mini(Icons.schedule_rounded, purple, 'Aktif Süre',
-                      '${_n('active_hours').toStringAsFixed(0)}s', s)),
-              _vline(s),
-              Expanded(
-                  child: _mini(Icons.monetization_on_rounded, orange,
-                      'Paket Başına', _money(average), s)),
-            ],
-          ),
-        ],
       ),
     );
   }
 
-  Widget _mini(
+  Widget _card(Widget child, double s) => Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(19 * s),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0B000000),
+              blurRadius: 14,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: child,
+      );
+
+  Widget _summaryCard(
+      double s, List<Map<String, dynamic>> rows, double total) {
+    final deliveryCount = rows.isNotEmpty
+        ? rows.length
+        : (selectedTab == 0 ? n('delivery_count').toInt() : 0);
+    final activeHours = selectedTab == 0 ? n('active_hours') : 0;
+    final perDelivery = deliveryCount == 0 ? 0.0 : total / deliveryCount;
+
+    return _card(
+      Padding(
+        padding: EdgeInsets.fromLTRB(20 * s, 18 * s, 20 * s, 16 * s),
+        child: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            selectedTab == 0
+                                ? 'Bugünkü Kazancın'
+                                : selectedTab == 1
+                                    ? 'Haftalık Kazancın'
+                                    : 'Aylık Kazancın',
+                            style: TextStyle(
+                              color: muted,
+                              fontSize: 15 * s,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(width: 7 * s),
+                          Icon(Icons.visibility_off_outlined,
+                              color: muted, size: 17 * s),
+                        ],
+                      ),
+                      SizedBox(height: 7 * s),
+                      Text(
+                        money(total),
+                        style: TextStyle(
+                          color: navy,
+                          fontSize: 34 * s,
+                          height: 1,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 11 * s,
+                        vertical: 7 * s,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE1FAED),
+                        borderRadius: BorderRadius.circular(20 * s),
+                      ),
+                      child: Text(
+                        '↑ %18',
+                        style: TextStyle(
+                          color: green,
+                          fontSize: 12.5 * s,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 5 * s),
+                    Text(
+                      'Düne göre',
+                      style: TextStyle(color: muted, fontSize: 10 * s),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: 18 * s),
+            Divider(height: 1, color: const Color(0xFFEDEBF1)),
+            SizedBox(height: 14 * s),
+            Row(
+              children: [
+                Expanded(
+                  child: _miniStat(Icons.inventory_2_rounded, purple,
+                      'Teslimat', '$deliveryCount', s),
+                ),
+                _divider(s),
+                Expanded(
+                  child: _miniStat(
+                    Icons.schedule_rounded,
+                    purple,
+                    'Aktif Süre',
+                    '${activeHours.toInt()}s ${(activeHours * 60 % 60).toInt()}dk',
+                    s,
+                  ),
+                ),
+                _divider(s),
+                Expanded(
+                  child: _miniStat(Icons.monetization_on_rounded, orange,
+                      'Paket Başına', money(perDelivery), s),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      s,
+    );
+  }
+
+  Widget _divider(double s) => Container(
+        width: 1,
+        height: 48 * s,
+        color: const Color(0xFFEDEBF1),
+      );
+
+  Widget _miniStat(
     IconData icon,
     Color color,
-    String title,
+    String label,
     String value,
     double s,
   ) => Column(
         children: [
-          Text(title,
-              maxLines: 1,
-              style: TextStyle(
-                  color: muted,
-                  fontSize: 8.3 * s,
-                  fontWeight: FontWeight.w700)),
-          SizedBox(height: 5 * s),
+          Text(
+            label,
+            maxLines: 1,
+            style: TextStyle(
+              color: muted,
+              fontSize: 10.5 * s,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: 6 * s),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 25 * s,
-                height: 25 * s,
+                width: 27 * s,
+                height: 27 * s,
                 decoration: BoxDecoration(
-                    color: color.withValues(alpha: .10), shape: BoxShape.circle),
-                child: Icon(icon, color: color, size: 15 * s),
+                  color: color.withValues(alpha: .10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 16 * s),
               ),
               SizedBox(width: 5 * s),
               Flexible(
-                child: Text(value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: navy,
-                        fontSize: 11.5 * s,
-                        fontWeight: FontWeight.w900)),
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: navy,
+                    fontSize: 13 * s,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ),
             ],
           ),
         ],
       );
 
-  Widget _vline(double s) =>
-      Container(width: 1, height: 43 * s, color: const Color(0xFFEFEDF4));
-
-  Widget _chart(double s, List<Map<String, dynamic>> rows) {
+  Widget _hourlySection(double s, List<Map<String, dynamic>> rows) {
     final labels = selectedTab == 0
         ? ['08', '10', '12', '14', '16', '18', '20', '22']
         : selectedTab == 1
             ? ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
             : ['1', '5', '10', '15', '20', '25', '30'];
+
     final values = List<double>.filled(labels.length, 0);
-
-    for (final row in rows) {
-      final d = _date(row['created_at']);
-      if (d == null) continue;
-      final amount = (row['amount'] as num?)?.toDouble() ?? 0;
-      int index;
-      if (selectedTab == 0) {
-        index = ((d.hour - 8) / 2).floor();
-      } else if (selectedTab == 1) {
-        index = d.weekday - 1;
-      } else {
-        index = ((d.day - 1) / 5).floor();
-        if (index < 0) index = 0;
-        if (index >= values.length) index = values.length - 1;
+    if (selectedTab == 0) {
+      for (final row in rows) {
+        final d = _date(row['created_at']);
+        if (d == null) continue;
+        final idx = ((d.hour - 8) / 2).floor();
+        if (idx >= 0 && idx < values.length) {
+          values[idx] += (row['amount'] as num?)?.toDouble() ?? 0;
+        }
       }
-      if (index >= 0 && index < values.length) values[index] += amount;
+    } else if (selectedTab == 1) {
+      for (final row in rows) {
+        final d = _date(row['created_at']);
+        if (d == null) continue;
+        final idx = d.weekday - 1;
+        if (idx >= 0 && idx < values.length) {
+          values[idx] += (row['amount'] as num?)?.toDouble() ?? 0;
+        }
+      }
+    } else {
+      for (final row in rows) {
+        final d = _date(row['created_at']);
+        if (d == null) continue;
+        final idx = ((d.day - 1) / 5).floor().clamp(0, values.length - 1);
+        values[idx] += (row['amount'] as num?)?.toDouble() ?? 0;
+      }
     }
 
-    double maxValue = 0;
-    int selected = 0;
-    for (var i = 0; i < values.length; i++) {
-      if (values[i] > maxValue) {
-        maxValue = values[i];
-        selected = i;
-      }
-    }
+    var maxValue = values.fold<double>(0, math.max);
     if (maxValue <= 0) maxValue = 1;
+    var selected = 0;
+    for (var i = 1; i < values.length; i++) {
+      if (values[i] > values[selected]) selected = i;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,39 +468,54 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
         Row(
           children: [
             Expanded(
-              child: Text(selectedTab == 0 ? 'Saatlik Kazanç' : 'Kazanç Grafiği',
-                  style: TextStyle(
-                      color: navy,
-                      fontSize: 14.5 * s,
-                      fontWeight: FontWeight.w900)),
+              child: Text(
+                selectedTab == 0 ? 'Saatlik Kazanç' : 'Kazanç Grafiği',
+                style: TextStyle(
+                  color: navy,
+                  fontSize: 16 * s,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ),
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 11 * s, vertical: 7 * s),
+              padding: EdgeInsets.symmetric(
+                horizontal: 13 * s,
+                vertical: 8 * s,
+              ),
               decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18 * s),
-                  border: Border.all(color: const Color(0xFFE9E7F0))),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22 * s),
+                border: Border.all(color: const Color(0xFFE8E6EE)),
+              ),
               child: Row(
                 children: [
-                  Text(selectedTab == 0 ? 'Bugün' : selectedTab == 1 ? 'Bu Hafta' : 'Bu Ay',
-                      style: TextStyle(
-                          color: purple,
-                          fontSize: 9.5 * s,
-                          fontWeight: FontWeight.w800)),
+                  Text(
+                    selectedTab == 0
+                        ? 'Bugün'
+                        : selectedTab == 1
+                            ? 'Bu Hafta'
+                            : 'Bu Ay',
+                    style: TextStyle(
+                      color: purple,
+                      fontSize: 11 * s,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(width: 3 * s),
                   Icon(Icons.keyboard_arrow_down_rounded,
-                      color: purple, size: 16 * s),
+                      color: purple, size: 17 * s),
                 ],
               ),
             ),
           ],
         ),
-        SizedBox(height: 10 * s),
+        SizedBox(height: 12 * s),
         SizedBox(
-          height: 130 * s,
+          height: 150 * s,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              for (int i = 0; i < values.length; i++)
+              for (var i = 0; i < labels.length; i++)
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -423,39 +523,50 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
                       if (i == selected && values[i] > 0)
                         Container(
                           padding: EdgeInsets.symmetric(
-                              horizontal: 7 * s, vertical: 4 * s),
+                            horizontal: 8 * s,
+                            vertical: 4 * s,
+                          ),
                           decoration: BoxDecoration(
-                              color: navy,
-                              borderRadius: BorderRadius.circular(10 * s)),
-                          child: Text(_money(values[i]),
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 7.5 * s,
-                                  fontWeight: FontWeight.w800)),
+                            color: navy,
+                            borderRadius: BorderRadius.circular(10 * s),
+                          ),
+                          child: Text(
+                            money(values[i]),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 8.5 * s,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
                       SizedBox(height: 3 * s),
                       Container(
-                        width: 21 * s,
-                        height: (24 + (values[i] / maxValue) * 55) * s,
+                        width: 22 * s,
+                        height: math.max(20 * s, 92 * s * (values[i] / maxValue)),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: i == selected
                                 ? const [purple, purple2]
-                                : const [Color(0xFFA783F3), Color(0xFFD5C4F9)],
+                                : const [
+                                    Color(0xFFAE8CF2),
+                                    Color(0xFFD6C6F8),
+                                  ],
                           ),
                           borderRadius: BorderRadius.circular(4 * s),
                         ),
                       ),
-                      SizedBox(height: 5 * s),
-                      Text(labels[i],
-                          style: TextStyle(
-                              color: i == selected ? purple : muted,
-                              fontSize: 8 * s,
-                              fontWeight: i == selected
-                                  ? FontWeight.w800
-                                  : FontWeight.w500)),
+                      SizedBox(height: 7 * s),
+                      Text(
+                        labels[i],
+                        style: TextStyle(
+                          color: i == selected ? purple : muted,
+                          fontSize: 9.5 * s,
+                          fontWeight:
+                              i == selected ? FontWeight.w800 : FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -466,308 +577,206 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
     );
   }
 
-  Widget _distribution(
-    double s,
-    List<Map<String, dynamic>> rows,
-    double total,
-  ) {
-    double food = 0, market = 0, other = 0;
-    for (final row in rows) {
-      final amount = (row['amount'] as num?)?.toDouble() ?? 0;
-      final text = '${row['title'] ?? ''} ${row['description'] ?? ''}'.toLowerCase();
-      if (text.contains('market') || text.contains('alışveriş')) {
-        market += amount;
-      } else if (text.contains('evrak') || text.contains('belge') || text.contains('diğer')) {
-        other += amount;
-      } else {
-        food += amount;
-      }
-    }
-    final safe = total <= 0 ? 1.0 : total;
-    final foodPct = (food / safe * 100).round();
-    final marketPct = (market / safe * 100).round();
-    final otherPct = (other / safe * 100).round();
-
-    return _card(
-      s,
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Kazanç Dağılımı',
-              style: TextStyle(
-                  color: navy,
-                  fontSize: 14.5 * s,
-                  fontWeight: FontWeight.w900)),
-          SizedBox(height: 12 * s),
-          Row(
+  Widget _distribution(double s, double total) => _card(
+        Padding(
+          padding: EdgeInsets.fromLTRB(16 * s, 16 * s, 16 * s, 18 * s),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 130 * s,
-                height: 130 * s,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 110 * s,
-                      height: 110 * s,
-                      child: CircularProgressIndicator(
-                        value: total <= 0 ? .01 : (food / safe).clamp(.01, 1).toDouble(),
-                        strokeWidth: 20 * s,
-                        backgroundColor: orange,
-                        color: purple2,
-                      ),
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
+              Text(
+                'Kazanç Dağılımı',
+                style: TextStyle(
+                  color: navy,
+                  fontSize: 16 * s,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: 16 * s),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 135 * s,
+                    height: 135 * s,
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        Text(_money(total),
-                            style: TextStyle(
+                        CustomPaint(
+                          size: Size.square(135 * s),
+                          painter: _RingPainter(),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              money(total),
+                              style: TextStyle(
                                 color: navy,
-                                fontSize: 15 * s,
-                                fontWeight: FontWeight.w900)),
-                        Text('Toplam',
-                            style: TextStyle(color: muted, fontSize: 9 * s)),
+                                fontSize: 19 * s,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            Text(
+                              'Toplam',
+                              style: TextStyle(color: muted, fontSize: 11 * s),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              SizedBox(width: 5 * s),
-              Expanded(
-                child: Column(
-                  children: [
-                    _legend('Yemek', purple, foodPct, food, s),
-                    SizedBox(height: 9 * s),
-                    _legend('Market', orange, marketPct, market, s),
-                    SizedBox(height: 9 * s),
-                    _legend('Evrak / Diğer', const Color(0xFFB99BF4),
-                        otherPct, other, s),
-                  ],
-                ),
+                  ),
+                  SizedBox(width: 20 * s),
+                  Expanded(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12 * s,
+                        vertical: 13 * s,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F6FD),
+                        borderRadius: BorderRadius.circular(14 * s),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Toplam Kazanç',
+                            style: TextStyle(
+                              color: muted,
+                              fontSize: 11 * s,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(height: 4 * s),
+                          Text(
+                            money(total),
+                            style: TextStyle(
+                              color: navy,
+                              fontSize: 18 * s,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _legend(
-    String text,
-    Color color,
-    int percent,
-    double amount,
-    double s,
-  ) => Row(
-        children: [
-          Container(
-              width: 10 * s,
-              height: 10 * s,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          SizedBox(width: 6 * s),
-          Expanded(
-            child: Text(text,
-                maxLines: 1,
-                style: TextStyle(
-                    color: navy,
-                    fontSize: 9.2 * s,
-                    fontWeight: FontWeight.w700)),
-          ),
-          Text('%$percent',
-              style: TextStyle(
-                  color: navy,
-                  fontSize: 9 * s,
-                  fontWeight: FontWeight.w900)),
-          SizedBox(width: 7 * s),
-          SizedBox(
-            width: 55 * s,
-            child: Text(_money(amount),
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                    color: navy,
-                    fontSize: 9 * s,
-                    fontWeight: FontWeight.w900)),
-          ),
-        ],
+        ),
+        s,
       );
 
-  Widget _goal(double s, double total) {
-    const target = 400.0;
-    final progress = (total / target).clamp(0.0, 1.0).toDouble();
-    return _card(
-      s,
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('Günlük Hedef',
-                    style: TextStyle(
-                        color: navy,
-                        fontSize: 14.5 * s,
-                        fontWeight: FontWeight.w900)),
-              ),
-              Icon(Icons.edit_outlined, color: muted, size: 18 * s),
-            ],
-          ),
-          SizedBox(height: 13 * s),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8 * s),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 10 * s,
-              backgroundColor: const Color(0xFFEDECF2),
-              color: const Color(0xFF0CCB64),
-            ),
-          ),
-          SizedBox(height: 7 * s),
-          Row(
-            children: [
-              Text('${_money(total)} / ${_money(target)}',
-                  style: TextStyle(
-                      color: muted,
-                      fontSize: 11 * s,
-                      fontWeight: FontWeight.w800)),
-              const Spacer(),
-              Text('%${(progress * 100).round()}',
-                  style: TextStyle(
-                      color: green,
-                      fontSize: 11 * s,
-                      fontWeight: FontWeight.w900)),
-            ],
-          ),
-          SizedBox(height: 11 * s),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 13 * s, vertical: 11 * s),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [Color(0xFFF3EDFF), Color(0xFFF8F3FF)]),
-              borderRadius: BorderRadius.circular(13 * s),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.emoji_events_rounded, color: purple, size: 28 * s),
-                SizedBox(width: 10 * s),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Harika gidiyorsun!',
-                          style: TextStyle(
-                              color: purple,
-                              fontSize: 11 * s,
-                              fontWeight: FontWeight.w900)),
-                      Text(
-                        total >= target
-                            ? 'Bugünkü hedefini tamamladın.'
-                            : 'Hedefine çok az kaldı. 💪',
-                        style: TextStyle(color: muted, fontSize: 9 * s),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tip(double s) => Container(
-        padding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 12 * s),
+  Widget _moreCard(double s) => Container(
+        padding: EdgeInsets.symmetric(horizontal: 15 * s, vertical: 13 * s),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-              colors: [Color(0xFFFFF0E8), Color(0xFFFFF2F5)]),
-          borderRadius: BorderRadius.circular(17 * s),
+            colors: [Color(0xFFFFF2EA), Color(0xFFFFEEF0)],
+          ),
+          borderRadius: BorderRadius.circular(18 * s),
         ),
         child: Row(
           children: [
             Container(
-              width: 39 * s,
-              height: 39 * s,
+              width: 45 * s,
+              height: 45 * s,
               decoration: BoxDecoration(
-                  color: const Color(0xFFFFE2C9),
-                  borderRadius: BorderRadius.circular(12 * s)),
+                color: const Color(0xFFFFE3C4),
+                borderRadius: BorderRadius.circular(12 * s),
+              ),
               child: Icon(Icons.workspace_premium_rounded,
-                  color: const Color(0xFFFF9B24), size: 25 * s),
+                  color: Colors.orange, size: 26 * s),
             ),
-            SizedBox(width: 11 * s),
+            SizedBox(width: 12 * s),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Daha fazla kazan',
-                      style: TextStyle(
-                          color: const Color(0xFF5A145E),
-                          fontSize: 10.5 * s,
-                          fontWeight: FontWeight.w900)),
-                  Text('Yoğun saatlerde online kalarak\nkazancını artırabilirsin.',
-                      style: TextStyle(color: muted, fontSize: 9 * s, height: 1.2)),
+                  Text(
+                    'Daha fazla kazan',
+                    style: TextStyle(
+                      color: const Color(0xFF5D1552),
+                      fontSize: 14 * s,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    'Yoğun saatlerde online kalarak\nkazancını artırabilirsin.',
+                    style: TextStyle(
+                      color: muted,
+                      fontSize: 11 * s,
+                      height: 1.2,
+                    ),
+                  ),
                 ],
               ),
             ),
             Icon(Icons.chevron_right_rounded,
-                color: const Color(0xFF8B306F), size: 21 * s),
+                color: const Color(0xFF8A245E), size: 25 * s),
           ],
         ),
       );
 
   Widget _onlineButton(double s) => Container(
         color: bg,
-        padding: EdgeInsets.fromLTRB(12 * s, 8 * s, 12 * s, 13 * s),
+        padding: EdgeInsets.fromLTRB(12 * s, 8 * s, 12 * s, 12 * s),
         child: SafeArea(
           top: false,
           child: SizedBox(
+            height: 58 * s,
             width: double.infinity,
-            height: 54 * s,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [Color(0xFF6B2AF2), Color(0xFF4A11C7)]),
-                borderRadius: BorderRadius.circular(27 * s),
+                gradient: const LinearGradient(colors: [purple2, purple]),
+                borderRadius: BorderRadius.circular(28 * s),
                 boxShadow: const [
                   BoxShadow(
-                      color: Color(0x335120D5),
-                      blurRadius: 14,
-                      offset: Offset(0, 6)),
+                    color: Color(0x285620D9),
+                    blurRadius: 18,
+                    offset: Offset(0, 7),
+                  ),
                 ],
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(27 * s),
-                  onTap: () => Navigator.pop(context),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.bolt_rounded, color: Colors.white, size: 24 * s),
-                      SizedBox(width: 8 * s),
-                      Text('Online Ol, Siparişleri Kaçırma',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5 * s,
-                              fontWeight: FontWeight.w800)),
-                    ],
-                  ),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.bolt_rounded,
+                        color: Colors.white, size: 28 * s),
+                    SizedBox(width: 8 * s),
+                    Text(
+                      'Online Ol, Siparişleri Kaçırma',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16 * s,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
         ),
       );
+}
 
-  Widget _card(double s, Widget child) => Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(14 * s),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(19 * s),
-          boxShadow: const [
-            BoxShadow(color: Color(0x0D000000), blurRadius: 16, offset: Offset(0, 5)),
-          ],
-        ),
-        child: child,
-      );
+class _RingPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2 - 13;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 22
+      ..strokeCap = StrokeCap.butt
+      ..shader = const LinearGradient(
+        colors: [Color(0xFF5620D9), Color(0xFF7C2CF2)],
+      ).createShader(rect);
+    canvas.drawArc(rect, -math.pi / 2, math.pi * 2, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
