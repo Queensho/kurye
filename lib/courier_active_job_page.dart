@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'courier_route_map_page.dart';
 import 'data/app_data_service.dart';
 
 class CourierActiveJobPage extends StatefulWidget {
@@ -85,6 +87,31 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
     'delivered' => 'Teslim Edildi',
     _ => 'Devam Et',
   };
+
+  double? _number(dynamic raw) {
+    if (raw is num) return raw.toDouble();
+    return double.tryParse((raw ?? '').toString());
+  }
+
+  Future<void> _openRouteMap({
+    required String title,
+    required String destinationLabel,
+    required LatLng destination,
+    LatLng? origin,
+    bool useCurrentLocation = false,
+  }) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => CourierRouteMapPage(
+      title: title,
+      destinationLabel: destinationLabel,
+      destination: destination,
+      origin: origin,
+      useCurrentLocation: useCurrentLocation,
+    )));
+  }
+
+  void _missingCoordinates() {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu gönderinin harita koordinatları bulunamadı.')));
+  }
 
   Future<void> _openNavigation(String address) async {
     final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${Uri.encodeComponent(address)}&travelmode=driving');
@@ -181,6 +208,12 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
         final phone = (row['customer_phone'] ?? row['receiver_phone'])?.toString();
         final distance = _distance(row['distance_km']);
         final duration = _duration(row['duration_min']);
+        final pickupLat = _number(row['pickup_lat'] ?? row['pickup_latitude']);
+        final pickupLng = _number(row['pickup_lng'] ?? row['pickup_longitude'] ?? row['pickup_lon']);
+        final dropoffLat = _number(row['dropoff_lat'] ?? row['dropoff_latitude']);
+        final dropoffLng = _number(row['dropoff_lng'] ?? row['dropoff_longitude'] ?? row['dropoff_lon']);
+        final pickupPoint = pickupLat != null && pickupLng != null ? LatLng(pickupLat, pickupLng) : null;
+        final dropoffPoint = dropoffLat != null && dropoffLng != null ? LatLng(dropoffLat, dropoffLng) : null;
 
         return Scaffold(
           backgroundColor: bg,
@@ -196,9 +229,15 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
                   const SizedBox(height: 18),
                   _routeOverview(pickup, dropoff, distance, duration),
                   const SizedBox(height: 12),
-                  _addressCard('Alım Noktası', pickup, orange),
+                  _addressCard('Alım Noktası', pickup, orange, onRoute: () {
+                    if (pickupPoint == null) return _missingCoordinates();
+                    _openRouteMap(title: 'Alım Noktasına Rota', destinationLabel: 'Bulunduğun yer → Alım adresi', destination: pickupPoint, useCurrentLocation: true);
+                  }),
                   const SizedBox(height: 10),
-                  _addressCard('Teslimat Adresi', dropoff, purple),
+                  _addressCard('Teslimat Adresi', dropoff, purple, onRoute: () {
+                    if (pickupPoint == null || dropoffPoint == null) return _missingCoordinates();
+                    _openRouteMap(title: 'Teslimat Rotası', destinationLabel: 'Alım adresi → Teslimat adresi', origin: pickupPoint, destination: dropoffPoint);
+                  }),
                   const SizedBox(height: 12),
                   _earningCard(earning),
                 ],
@@ -258,15 +297,15 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
     ]),
   );
 
-  Widget _addressCard(String title,String address,Color color)=>Container(
+  Widget _addressCard(String title,String address,Color color,{required VoidCallback onRoute})=>Container(
     minHeight: 80,
-    padding: const EdgeInsets.fromLTRB(13,11,8,11),
+    padding: const EdgeInsets.fromLTRB(13,11,10,11),
     decoration: BoxDecoration(color: Colors.white,borderRadius: BorderRadius.circular(20)),
     child: Row(children: [
       Container(width: 42,height: 42,decoration: BoxDecoration(color: color.withValues(alpha:.10),shape: BoxShape.circle),child: Icon(Icons.location_on_rounded,color: color,size: 23)),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,mainAxisAlignment: MainAxisAlignment.center,children: [Text(title,style: const TextStyle(color: navy,fontSize: 13,fontWeight: FontWeight.w900)),const SizedBox(height: 3),Text(address,maxLines: 2,overflow: TextOverflow.ellipsis,style: const TextStyle(color: muted,fontSize: 10.5,height: 1.25))])),
-      IconButton(onPressed: () => _openNavigation(address),icon: Icon(Icons.navigation_rounded,color: color,size: 24)),
+      TextButton.icon(onPressed: onRoute, icon: Icon(Icons.route_rounded,color: color,size: 18), label: Text('Rota',style: TextStyle(color: color,fontSize: 10.5,fontWeight: FontWeight.w900))),
     ]),
   );
 
