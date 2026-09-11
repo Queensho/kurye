@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch compile errors
+      - name: Patch compile errors and realtime flow
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -31,6 +31,8 @@ jobs:
           s = s.replace("  Widget _addressCard(String title,String address,Color color,{required VoidCallback onRoute})=>Container(\n    minHeight: 80,", "  Widget _addressCard(String title,String address,Color color,{required VoidCallback onRoute})=>Container(\n    constraints: const BoxConstraints(minHeight: 80),")
           p.write_text(s)
           PY
+          python3 .github/scripts/complete_flow.py
+          dart format lib/courier_home_page.dart lib/courier_assigned_jobs_page.dart lib/courier_search_page.dart lib/customer_assigned_courier_page.dart || true
       - name: Commit fixes
         run: |
           if git diff --quiet; then
@@ -39,6 +41,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/courier_assigned_jobs_page.dart lib/courier_active_job_page.dart
-          git commit -m "Fix courier web build for route feature"
+          git add lib/courier_assigned_jobs_page.dart lib/courier_active_job_page.dart lib/courier_home_page.dart lib/courier_search_page.dart lib/customer_assigned_courier_page.dart
+          git commit -m "Complete courier realtime shipment flow"
           git push
