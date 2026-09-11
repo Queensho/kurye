@@ -17,6 +17,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Patch courier empty pool artwork
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/courier_home_page.dart')
+          s = p.read_text()
+          old = """  Widget _emptyPool(double s) => Center(child: Padding(padding: EdgeInsets.all(28*s), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.layers_outlined, color: muted, size: 42*s), SizedBox(height: 10*s), Text('Şu anda havuzda iş yok', style: TextStyle(color: navy, fontSize: 14*s, fontWeight: FontWeight.w900)), SizedBox(height: 5*s), Text('Yeni gönderi geldiğinde burada otomatik görünecek.', style: TextStyle(color: muted, fontSize: 10*s))])));"""
+          new = """  Widget _emptyPool(double s) => LayoutBuilder(
+    builder: (context, constraints) => SizedBox.expand(
+      child: Image.asset(
+        'assets/images/Bos.png',
+        fit: BoxFit.contain,
+        alignment: Alignment.bottomCenter,
+        filterQuality: FilterQuality.high,
+      ),
+    ),
+  );"""
+          if old in s:
+              p.write_text(s.replace(old, new))
+          PY
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
