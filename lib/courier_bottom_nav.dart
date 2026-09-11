@@ -31,7 +31,13 @@ class CourierBottomNav extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(8 * s, 6 * s, 8 * s, 7 * s),
         decoration: const BoxDecoration(
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Color(0x10000000), blurRadius: 16, offset: Offset(0, -3))],
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x10000000),
+              blurRadius: 16,
+              offset: Offset(0, -3),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -43,14 +49,20 @@ class CourierBottomNav extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(items[i].$1, color: i == currentIndex ? orange : inactive, size: 20 * s),
+                      Icon(
+                        items[i].$1,
+                        color: i == currentIndex ? orange : inactive,
+                        size: 20 * s,
+                      ),
                       SizedBox(height: 3 * s),
                       Text(
                         items[i].$2,
                         style: TextStyle(
                           color: i == currentIndex ? orange : inactive,
                           fontSize: 8.5 * s,
-                          fontWeight: i == currentIndex ? FontWeight.w800 : FontWeight.w500,
+                          fontWeight: i == currentIndex
+                              ? FontWeight.w800
+                              : FontWeight.w500,
                         ),
                       ),
                       SizedBox(height: 3 * s),
@@ -58,7 +70,9 @@ class CourierBottomNav extends StatelessWidget {
                         width: 30 * s,
                         height: 2.2 * s,
                         decoration: BoxDecoration(
-                          color: i == currentIndex ? orange : Colors.transparent,
+                          color: i == currentIndex
+                              ? orange
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(3 * s),
                         ),
                       ),
