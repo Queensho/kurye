@@ -46,6 +46,90 @@ extension CustomerDeliveryActions on AppDataService {
     return Map<String, dynamic>.from(value as Map);
   }
 
+  Future<List<Map<String, dynamic>>> getCustomerSupportTickets() async {
+    final value = await client.rpc('get_customer_support_tickets');
+    return List<Map<String, dynamic>>.from(value as List);
+  }
+
+  Future<Map<String, dynamic>> createPaymentDispute({
+    required String shipmentId,
+    required String reason,
+    String? description,
+  }) async {
+    final value = await client.rpc(
+      'create_payment_dispute',
+      params: {
+        'p_shipment_id': shipmentId,
+        'p_reason': reason,
+        'p_description': description,
+      },
+    );
+    return Map<String, dynamic>.from(value as Map);
+  }
+
+  Future<Map<String, dynamic>> saveDetailedAddress({
+    required String label,
+    required String addressLine,
+    double? latitude,
+    double? longitude,
+    String? contactName,
+    String? contactPhone,
+    String? buildingName,
+    String? floorNo,
+    String? apartmentNo,
+    String? doorNote,
+    bool isDefault = false,
+  }) async {
+    if (isDefault) {
+      await client.from('addresses').update({'is_default': false}).eq('user_id', userId);
+    }
+    final row = await client.from('addresses').insert({
+      'user_id': userId,
+      'label': label.trim(),
+      'address_line': addressLine.trim(),
+      'latitude': latitude,
+      'longitude': longitude,
+      'contact_name': contactName?.trim().isEmpty == true ? null : contactName?.trim(),
+      'contact_phone': contactPhone?.trim().isEmpty == true ? null : contactPhone?.trim(),
+      'building_name': buildingName?.trim().isEmpty == true ? null : buildingName?.trim(),
+      'floor_no': floorNo?.trim().isEmpty == true ? null : floorNo?.trim(),
+      'apartment_no': apartmentNo?.trim().isEmpty == true ? null : apartmentNo?.trim(),
+      'door_note': doorNote?.trim().isEmpty == true ? null : doorNote?.trim(),
+      'is_default': isDefault,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).select().single();
+    return Map<String, dynamic>.from(row);
+  }
+
+  Future<void> updateDetailedAddress({
+    required String addressId,
+    String? label,
+    String? addressLine,
+    double? latitude,
+    double? longitude,
+    String? contactName,
+    String? contactPhone,
+    String? buildingName,
+    String? floorNo,
+    String? apartmentNo,
+    String? doorNote,
+  }) async {
+    final values = <String, dynamic>{
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    if (label != null) values['label'] = label.trim();
+    if (addressLine != null) values['address_line'] = addressLine.trim();
+    if (latitude != null) values['latitude'] = latitude;
+    if (longitude != null) values['longitude'] = longitude;
+    if (contactName != null) values['contact_name'] = contactName.trim().isEmpty ? null : contactName.trim();
+    if (contactPhone != null) values['contact_phone'] = contactPhone.trim().isEmpty ? null : contactPhone.trim();
+    if (buildingName != null) values['building_name'] = buildingName.trim().isEmpty ? null : buildingName.trim();
+    if (floorNo != null) values['floor_no'] = floorNo.trim().isEmpty ? null : floorNo.trim();
+    if (apartmentNo != null) values['apartment_no'] = apartmentNo.trim().isEmpty ? null : apartmentNo.trim();
+    if (doorNote != null) values['door_note'] = doorNote.trim().isEmpty ? null : doorNote.trim();
+    await client.from('addresses').update(values).eq('id', addressId).eq('user_id', userId);
+  }
+
   Future<Map<String, dynamic>?> getShipmentRating(String shipmentId) async {
     final rows = await client
         .from('shipment_ratings')
