@@ -121,6 +121,7 @@ class _CustomerSupportTicketsPageState extends State<CustomerSupportTicketsPage>
                           final color = _statusColor(status);
                           final description = (ticket['description'] ?? '').toString();
                           final shipmentId = ticket['shipment_id']?.toString();
+                          final shipmentShort = shipmentId == null ? '' : shipmentId.substring(0, shipmentId.length < 8 ? shipmentId.length : 8);
                           return Container(
                             padding: const EdgeInsets.all(15),
                             decoration: BoxDecoration(
@@ -145,7 +146,7 @@ class _CustomerSupportTicketsPageState extends State<CustomerSupportTicketsPage>
                               ],
                               if (shipmentId != null && shipmentId.isNotEmpty) ...[
                                 const SizedBox(height: 10),
-                                Text('Gönderi: ${shipmentId.substring(0, shipmentId.length.clamp(0, 8))}', style: const TextStyle(color: muted, fontSize: 10.5)),
+                                Text('Gönderi: $shipmentShort', style: const TextStyle(color: muted, fontSize: 10.5)),
                               ],
                             ]),
                           );
