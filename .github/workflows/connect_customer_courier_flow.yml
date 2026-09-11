@@ -1,0 +1,154 @@
+name: Connect Customer Courier Flow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/connect_customer_courier_flow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch customer-courier realtime flow
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # 1) Courier accepts a pool job -> open the realtime active-job screen
+          p = Path('lib/courier_home_page.dart')
+          s = p.read_text()
+          s = s.replace("import 'courier_active_job_page.dart';", "import 'courier_active_job_realtime_page.dart';")
+          old = """      await data.claimShipment(item['id'].toString());
+      if (!mounted) return;
+      await _loadDashboard();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CourierActiveJobPage(
+            pickup: (item['pickup_address'] ?? '').toString(),
+            dropoff: (item['dropoff_address'] ?? '').toString(),
+            pickupKm: '0 km',
+            totalKm: '${item['distance_km'] ?? 0} km',
+            duration: '${item['duration_min'] ?? 0} dk',
+            earning:
+                ((item['courier_earning'] ?? item['estimated_price'] ?? 0)
+                        as num)
+                    .round(),
+          ),
+        ),
+      );"""
+          new = """      final claimed = await data.claimShipment(item['id'].toString());
+      if (!mounted) return;
+      await _loadDashboard();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CourierActiveJobRealtimePage(
+            shipmentId: claimed['id'].toString(),
+            pickup: (claimed['pickup_address'] ?? item['pickup_address'] ?? '').toString(),
+            dropoff: (claimed['dropoff_address'] ?? item['dropoff_address'] ?? '').toString(),
+            earning: ((claimed['courier_earning'] ?? claimed['estimated_price'] ?? item['courier_earning'] ?? item['estimated_price'] ?? 0) as num).round(),
+          ),
+        ),
+      );"""
+          if old not in s:
+              raise SystemExit('courier_home claim block not found')
+          s = s.replace(old, new)
+          p.write_text(s)
+
+          # 2) Customer assigned-courier screen must listen to shipment status changes too
+          p = Path('lib/customer_assigned_courier_page.dart')
+          s = p.read_text()
+          s = s.replace(
+              "  StreamSubscription<Map<String, dynamic>>? courierSub;\n",
+              "  StreamSubscription<Map<String, dynamic>>? courierSub;\n  StreamSubscription<Map<String, dynamic>>? shipmentSub;\n",
+          )
+          old = """      setState(() { info = value; loading = false; });
+      final courierId = value['courier_id']?.toString();"""
+          new = """      setState(() { info = value; loading = false; });
+      shipmentSub = data.watchShipment(widget.shipmentId).listen((row) {
+        if (!mounted || row.isEmpty) return;
+        setState(() {
+          info = {...?info, ...row, 'shipment_status': row['status']};
+        });
+      });
+      final courierId = value['courier_id']?.toString();"""
+          if old not in s:
+              raise SystemExit('customer assigned load block not found')
+          s = s.replace(old, new)
+          s = s.replace(
+              "  void dispose() {\n    courierSub?.cancel();\n    super.dispose();\n  }",
+              "  void dispose() {\n    courierSub?.cancel();\n    shipmentSub?.cancel();\n    super.dispose();\n  }",
+          )
+          p.write_text(s)
+
+          # 3) Remove fake auto-progress from the customer 'courier searching' page
+          p = Path('lib/courier_search_page.dart')
+          s = p.read_text()
+          s = s.replace("  Timer? testStageTimer;\n", "")
+          s = s.replace("  int testStage = 0;\n", "")
+          s = s.replace("      _startTestStages();\n", "")
+          start = s.find("  void _startTestStages() {")
+          if start != -1:
+              end = s.find("\n  void _listenShipment", start)
+              if end == -1:
+                  raise SystemExit('test stage function end not found')
+              s = s[:start] + s[end+1:]
+          s = s.replace("    testStageTimer?.cancel();\n", "")
+          s = s.replace("    testStageTimer?.cancel();\n", "")
+          fake_badge = """        Positioned(right: 17 * s, top: 50 * s, child: Container(padding: EdgeInsets.symmetric(horizontal: 11 * s, vertical: 9 * s), decoration: BoxDecoration(color: orange, borderRadius: BorderRadius.circular(12 * s)), child: Text('Test akışı\\notomatik ilerliyor', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 10.5 * s, height: 1.2, fontWeight: FontWeight.w800)))),
+"""
+          s = s.replace(fake_badge, "")
+          old_progress = """    const labels = ['Kurye aranıyor', 'Kurye bulundu', 'Yola çıkıyor', 'Teslim edilecek'];
+    return Container(
+      height: 72 * s,
+      margin: EdgeInsets.symmetric(horizontal: 13 * s),
+      padding: EdgeInsets.fromLTRB(14 * s, 12 * s, 14 * s, 8 * s),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * s), boxShadow: const [BoxShadow(color: Color(0x0A171052), blurRadius: 16, offset: Offset(0, 5))]),
+      child: Column(children: [
+        Row(children: [for (int i = 0; i < 4; i++) ...[
+          Container(
+            width: 18 * s,
+            height: 18 * s,
+            decoration: BoxDecoration(color: i <= testStage ? orange : const Color(0xFFD6D3E8), shape: BoxShape.circle),
+            child: i < testStage ? Icon(Icons.check_rounded, color: Colors.white, size: 12 * s) : (i == testStage ? Icon(Icons.circle, color: Colors.white, size: 5 * s) : null),
+          ),
+          if (i < 3) Expanded(child: Container(height: 2 * s, color: i < testStage ? orange : (i == testStage ? const Color(0xFFFFB39A) : const Color(0xFFE1DFEA))))
+        ]]),
+        SizedBox(height: 8 * s),
+        Row(children: [for (int i = 0; i < labels.length; i++) Expanded(child: Text(labels[i], textAlign: TextAlign.center, maxLines: 1, style: TextStyle(color: i <= testStage ? navy : muted, fontSize: 8.6 * s, fontWeight: i == testStage ? FontWeight.w800 : FontWeight.w600)))]),
+      ]),
+    );"""
+          new_progress = """    return Container(
+      height: 72 * s,
+      margin: EdgeInsets.symmetric(horizontal: 13 * s),
+      padding: EdgeInsets.symmetric(horizontal: 16 * s, vertical: 12 * s),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * s), boxShadow: const [BoxShadow(color: Color(0x0A171052), blurRadius: 16, offset: Offset(0, 5))]),
+      child: Row(children: [
+        Container(width: 34 * s, height: 34 * s, decoration: const BoxDecoration(color: Color(0xFFFFE8DF), shape: BoxShape.circle), child: Icon(Icons.radar_rounded, color: orange, size: 20 * s)),
+        SizedBox(width: 12 * s),
+        Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Kurye aranıyor', style: TextStyle(color: navy, fontSize: 13 * s, fontWeight: FontWeight.w900)),
+          SizedBox(height: 3 * s),
+          Text('Gönderin havuzda. Bir kurye işi aldığı anda bu ekran otomatik güncellenecek.', style: TextStyle(color: muted, fontSize: 9.5 * s, height: 1.25)),
+        ])),
+      ]),
+    );"""
+          if old_progress not in s:
+              raise SystemExit('search progress block not found')
+          s = s.replace(old_progress, new_progress)
+          p.write_text(s)
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/courier_home_page.dart lib/customer_assigned_courier_page.dart lib/courier_search_page.dart
+          git commit -m "Connect customer courier realtime shipment flow"
+          git push
