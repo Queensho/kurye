@@ -141,7 +141,7 @@ class _CourierProfilePageState extends State<CourierProfilePage> {
         height: 286 * s,
         child: Stack(fit: StackFit.expand, children: [
           Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [deepPurple, Color(0xFF5B26CE)]), borderRadius: BorderRadius.only(bottomLeft: Radius.circular(36), bottomRight: Radius.circular(36)))),
-          Positioned(left: -22 * s, bottom: -16 * s, width: 300 * s, height: 260 * s, child: Image.asset('assets/images/Ofline.png', fit: BoxFit.cover, alignment: Alignment.bottomLeft)),
+          Positioned(left: -22 * s, bottom: -16 * s, width: 300 * s, height: 260 * s, child: Image.asset('assets/images/Profil3d.png', fit: BoxFit.contain, alignment: Alignment.bottomLeft, filterQuality: FilterQuality.high)),
           Positioned(left: 18 * s, top: 18 * s, child: Text('Profilim', style: TextStyle(color: Colors.white, fontSize: 23 * s, fontWeight: FontWeight.w900))),
           Positioned(right: 17 * s, top: 14 * s, child: Material(color: Colors.white.withValues(alpha: .13), shape: const CircleBorder(), child: InkWell(onTap: _openEdit, customBorder: const CircleBorder(), child: SizedBox(width: 42 * s, height: 42 * s, child: Icon(Icons.settings_rounded, color: Colors.white, size: 22 * s))))),
           Positioned(right: 24 * s, bottom: 50 * s, child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
