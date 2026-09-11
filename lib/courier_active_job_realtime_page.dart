@@ -13,11 +13,11 @@ class CourierActiveJobRealtimePage extends StatefulWidget {
 }
 
 class _CourierActiveJobRealtimePageState extends State<CourierActiveJobRealtimePage>{
-  static const blue=Color(0xFF168CF5), navy=Color(0xFF10213E), muted=Color(0xFF718198), green=Color(0xFF10B866);
+  static const blue=Color(0xFF168CF5), navy=Color(0xFF10213E), muted=Color(0xFF718198), green=Color(0xFF10B866), red=Color(0xFFE65252);
   bool busy=false;
 
-  int stepFor(String status)=>switch(status){'accepted'=>0,'at_pickup'=>1,'picked_up'=>2,'at_dropoff'=>3,'delivered'=>4,_=>0};
-  String labelFor(String status)=>switch(status){'accepted'=>'Alım Noktasına Git','at_pickup'=>'Teslim Aldım','picked_up'=>'Teslimat Adresine Git','at_dropoff'=>'Teslim Ettim','delivered'=>'Teslim Edildi',_=>'Devam Et'};
+  int stepFor(String status)=>switch(status){'accepted'=>0,'at_pickup'=>1,'picked_up'=>2,'at_dropoff'=>3,'delivered'=>4,'cancelled'=>0,_=>0};
+  String labelFor(String status)=>switch(status){'accepted'=>'Alım Noktasına Git','at_pickup'=>'Teslim Aldım','picked_up'=>'Teslimat Adresine Git','at_dropoff'=>'Teslim Ettim','delivered'=>'Teslim Edildi','cancelled'=>'Gönderi İptal Edildi',_=>'Devam Et'};
 
   Future<void> openNavigation(String address) async {
     final uri=Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${Uri.encodeComponent(address)}&travelmode=driving');
@@ -25,7 +25,7 @@ class _CourierActiveJobRealtimePageState extends State<CourierActiveJobRealtimeP
   }
 
   Future<void> advance(String status) async {
-    if(busy||status=='delivered')return;
+    if(busy||status=='delivered'||status=='cancelled')return;
     if(status=='accepted'){
       await openNavigation(widget.pickup);
       if(!mounted)return;
@@ -61,25 +61,43 @@ class _CourierActiveJobRealtimePageState extends State<CourierActiveJobRealtimeP
     builder:(context,snapshot){
       final row=snapshot.data??const <String,dynamic>{};
       final status=(row['status']??'accepted').toString();
+      final cancelled=status=='cancelled';
       final step=stepFor(status);
       final pickup=(row['pickup_address']??widget.pickup).toString();
       final dropoff=(row['dropoff_address']??widget.dropoff).toString();
       final code=(row['public_code']??'Aktif İş').toString();
+      final cancelReason=(row['cancel_reason']??'').toString();
       return Scaffold(
         backgroundColor:const Color(0xFFF5FAFF),
         appBar:AppBar(backgroundColor:Colors.white,surfaceTintColor:Colors.white,title:Text(code,style:const TextStyle(color:navy,fontWeight:FontWeight.w900))),
         body:ListView(padding:const EdgeInsets.all(18),children:[
-          Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF168CF5),Color(0xFF55CFFF)]),borderRadius:BorderRadius.circular(26)),child:const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('İşin Aktif!',style:TextStyle(color:Colors.white,fontSize:30,fontWeight:FontWeight.w900)),SizedBox(height:6),Text('Durum değişiklikleri müşteriye anında yansır.',style:TextStyle(color:Colors.white))])),
+          Container(
+            padding:const EdgeInsets.all(18),
+            decoration:BoxDecoration(
+              gradient:LinearGradient(colors:cancelled?[const Color(0xFFE65252),const Color(0xFFFF8A80)]:[const Color(0xFF168CF5),const Color(0xFF55CFFF)]),
+              borderRadius:BorderRadius.circular(26),
+            ),
+            child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(cancelled?'Gönderi iptal edildi':'İşin Aktif!',style:const TextStyle(color:Colors.white,fontSize:30,fontWeight:FontWeight.w900)),
+              const SizedBox(height:6),
+              Text(cancelled?(cancelReason.isEmpty?'Müşteri gönderiyi iptal etti.':'Neden: $cancelReason'):'Durum değişiklikleri müşteriye anında yansır.',style:const TextStyle(color:Colors.white)),
+            ]),
+          ),
           const SizedBox(height:18),
-          _progress(step),
-          const SizedBox(height:18),
-          _addressCard('Alım Noktası',pickup,blue,status=='accepted'||status=='at_pickup'),
+          if(!cancelled)_progress(step),
+          if(!cancelled)const SizedBox(height:18),
+          _addressCard('Alım Noktası',pickup,blue,!cancelled&&(status=='accepted'||status=='at_pickup')),
           const SizedBox(height:12),
-          _addressCard('Teslimat Adresi',dropoff,const Color(0xFFFF4757),status=='picked_up'||status=='at_dropoff'),
+          _addressCard('Teslimat Adresi',dropoff,const Color(0xFFFF4757),!cancelled&&(status=='picked_up'||status=='at_dropoff')),
           const SizedBox(height:16),
-          Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22)),child:Row(children:[const Icon(Icons.payments_rounded,color:green),const SizedBox(width:10),const Expanded(child:Text('Kurye Kazancı',style:TextStyle(color:muted))),Text('₺${widget.earning}',style:const TextStyle(color:green,fontSize:23,fontWeight:FontWeight.w900))])),
+          Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(22)),child:Row(children:[Icon(cancelled?Icons.info_outline_rounded:Icons.payments_rounded,color:cancelled?red:green),const SizedBox(width:10),Expanded(child:Text(cancelled?'Bu iş artık aktif değil':'Kurye Kazancı',style:const TextStyle(color:muted))),if(!cancelled)Text('₺${widget.earning}',style:const TextStyle(color:green,fontSize:23,fontWeight:FontWeight.w900))])),
         ]),
-        bottomNavigationBar:SafeArea(top:false,child:Padding(padding:const EdgeInsets.fromLTRB(18,8,18,14),child:FilledButton.icon(onPressed:status=='delivered'||busy?null:()=>advance(status),icon:busy?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2,color:Colors.white)):Icon(status=='at_pickup'||status=='at_dropoff'?Icons.check_circle_rounded:Icons.navigation_rounded),label:Text(labelFor(status)),style:FilledButton.styleFrom(minimumSize:const Size.fromHeight(58),backgroundColor:status=='at_pickup'||status=='at_dropoff'?green:blue,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(28)),textStyle:const TextStyle(fontSize:16,fontWeight:FontWeight.w900))))),
+        bottomNavigationBar:SafeArea(top:false,child:Padding(padding:const EdgeInsets.fromLTRB(18,8,18,14),child:FilledButton.icon(
+          onPressed:cancelled?()=>Navigator.of(context).pop():status=='delivered'||busy?null:()=>advance(status),
+          icon:busy?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2,color:Colors.white)):Icon(cancelled?Icons.arrow_back_rounded:status=='at_pickup'||status=='at_dropoff'?Icons.check_circle_rounded:Icons.navigation_rounded),
+          label:Text(cancelled?'Ana Sayfaya Dön':labelFor(status)),
+          style:FilledButton.styleFrom(minimumSize:const Size.fromHeight(58),backgroundColor:cancelled?red:status=='at_pickup'||status=='at_dropoff'?green:blue,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(28)),textStyle:const TextStyle(fontSize:16,fontWeight:FontWeight.w900)),
+        ))),
       );
     },
   );
