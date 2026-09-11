@@ -25,14 +25,12 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
 
   final data = AppDataService.instance;
   StreamSubscription<Map<String, dynamic>>? shipmentSub;
-  Timer? testStageTimer;
   Map<String, dynamic> shipment = {};
   String? shipmentId;
   bool openingCourier = false;
   bool loading = true;
   bool cancelling = false;
   String? error;
-  int testStage = 0;
 
   @override
   void initState() {
@@ -69,7 +67,6 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
       setState(() => loading = false);
       _listenShipment(shipmentId!);
       _maybeOpenCourier(shipment);
-      _startTestStages();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -77,19 +74,6 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
         error = e.toString().replaceFirst('Bad state: ', '');
       });
     }
-  }
-
-  void _startTestStages() {
-    testStageTimer?.cancel();
-    testStage = 0;
-    testStageTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (!mounted) return;
-      if (testStage >= 3) {
-        timer.cancel();
-        return;
-      }
-      setState(() => testStage++);
-    });
   }
 
   void _listenShipment(String id) {
@@ -103,7 +87,6 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
   void _maybeOpenCourier(Map<String, dynamic> row) {
     final courierId = row['courier_id']?.toString();
     if (openingCourier || courierId == null || courierId.isEmpty || shipmentId == null) return;
-    testStageTimer?.cancel();
     openingCourier = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -150,7 +133,6 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
 
   @override
   void dispose() {
-    testStageTimer?.cancel();
     shipmentSub?.cancel();
     super.dispose();
   }
@@ -231,30 +213,24 @@ class _CourierSearchPageState extends State<CourierSearchPage> {
         Positioned(right: -72 * s, top: -64 * s, width: 300 * s, height: 260 * s, child: Image.asset('assets/images/3d_kurye.png', fit: BoxFit.contain, alignment: Alignment.bottomRight, filterQuality: FilterQuality.high)),
         Positioned(left: 17 * s, top: 16 * s, child: InkWell(onTap: () => Navigator.of(context).pop(), borderRadius: BorderRadius.circular(14 * s), child: Container(width: 42 * s, height: 42 * s, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14 * s), boxShadow: const [BoxShadow(color: Color(0x0B000000), blurRadius: 10)]), child: Icon(Icons.arrow_back_rounded, color: navy, size: 25 * s)))),
         Positioned(left: 22 * s, bottom: 24 * s, width: 175 * s, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Kurye\nAranıyor', style: TextStyle(color: navy, fontSize: 31 * s, height: .95, fontWeight: FontWeight.w900, letterSpacing: -1.1)), SizedBox(height: 8 * s), Text('Sana en yakın ve uygun kuryeler\nkontrol ediliyor.', style: TextStyle(color: muted, fontSize: 11.5 * s, height: 1.3, fontWeight: FontWeight.w500))])),
-        Positioned(right: 17 * s, top: 50 * s, child: Container(padding: EdgeInsets.symmetric(horizontal: 11 * s, vertical: 9 * s), decoration: BoxDecoration(color: orange, borderRadius: BorderRadius.circular(12 * s)), child: Text('Test akışı\notomatik ilerliyor', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 10.5 * s, height: 1.2, fontWeight: FontWeight.w800)))),
       ]),
     );
   }
 
   Widget _progressCard(double s) {
-    const labels = ['Kurye aranıyor', 'Kurye bulundu', 'Yola çıkıyor', 'Teslim edilecek'];
     return Container(
       height: 72 * s,
       margin: EdgeInsets.symmetric(horizontal: 13 * s),
-      padding: EdgeInsets.fromLTRB(14 * s, 12 * s, 14 * s, 8 * s),
+      padding: EdgeInsets.symmetric(horizontal: 16 * s, vertical: 12 * s),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18 * s), boxShadow: const [BoxShadow(color: Color(0x0A171052), blurRadius: 16, offset: Offset(0, 5))]),
-      child: Column(children: [
-        Row(children: [for (int i = 0; i < 4; i++) ...[
-          Container(
-            width: 18 * s,
-            height: 18 * s,
-            decoration: BoxDecoration(color: i <= testStage ? orange : const Color(0xFFD6D3E8), shape: BoxShape.circle),
-            child: i < testStage ? Icon(Icons.check_rounded, color: Colors.white, size: 12 * s) : (i == testStage ? Icon(Icons.circle, color: Colors.white, size: 5 * s) : null),
-          ),
-          if (i < 3) Expanded(child: Container(height: 2 * s, color: i < testStage ? orange : (i == testStage ? const Color(0xFFFFB39A) : const Color(0xFFE1DFEA))))
-        ]]),
-        SizedBox(height: 8 * s),
-        Row(children: [for (int i = 0; i < labels.length; i++) Expanded(child: Text(labels[i], textAlign: TextAlign.center, maxLines: 1, style: TextStyle(color: i <= testStage ? navy : muted, fontSize: 8.6 * s, fontWeight: i == testStage ? FontWeight.w800 : FontWeight.w600)))]),
+      child: Row(children: [
+        SizedBox(width: 26 * s, height: 26 * s, child: CircularProgressIndicator(strokeWidth: 3 * s, color: orange)),
+        SizedBox(width: 12 * s),
+        Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Kurye aranıyor', style: TextStyle(color: navy, fontSize: 13 * s, fontWeight: FontWeight.w900)),
+          SizedBox(height: 3 * s),
+          Text('Gönderin uygun online kuryelerin havuzunda.', style: TextStyle(color: muted, fontSize: 10 * s, fontWeight: FontWeight.w600)),
+        ])),
       ]),
     );
   }

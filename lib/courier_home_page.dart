@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'courier_active_job_page.dart';
+import 'courier_active_job_realtime_page.dart';
 import 'courier_assigned_jobs_page.dart';
 import 'courier_bottom_nav.dart';
 import 'courier_earnings_page.dart';
@@ -153,21 +153,16 @@ class _CourierHomePageState extends State<CourierHomePage> {
       return;
     }
     try {
-      await data.claimShipment(item['id'].toString());
+      final claimed = await data.claimShipment(item['id'].toString());
       if (!mounted) return;
       await _loadDashboard();
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => CourierActiveJobPage(
-            pickup: (item['pickup_address'] ?? '').toString(),
-            dropoff: (item['dropoff_address'] ?? '').toString(),
-            pickupKm: '0 km',
-            totalKm: '${item['distance_km'] ?? 0} km',
-            duration: '${item['duration_min'] ?? 0} dk',
-            earning:
-                ((item['courier_earning'] ?? item['estimated_price'] ?? 0)
-                        as num)
-                    .round(),
+          builder: (_) => CourierActiveJobRealtimePage(
+            shipmentId: claimed['id'].toString(),
+            pickup: (claimed['pickup_address'] ?? item['pickup_address'] ?? '').toString(),
+            dropoff: (claimed['dropoff_address'] ?? item['dropoff_address'] ?? '').toString(),
+            earning: ((claimed['courier_earning'] ?? claimed['estimated_price'] ?? item['courier_earning'] ?? item['estimated_price'] ?? 0) as num).round(),
           ),
         ),
       );

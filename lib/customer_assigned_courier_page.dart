@@ -25,6 +25,7 @@ class _CustomerAssignedCourierPageState extends State<CustomerAssignedCourierPag
 
   final data = AppDataService.instance;
   StreamSubscription<Map<String, dynamic>>? courierSub;
+  StreamSubscription<Map<String, dynamic>>? shipmentSub;
   Map<String, dynamic>? info;
   Map<String, dynamic> courierLocation = {};
   bool loading = true;
@@ -49,6 +50,23 @@ class _CustomerAssignedCourierPageState extends State<CustomerAssignedCourierPag
           if (mounted) setState(() => courierLocation = row);
         });
       }
+      shipmentSub = data.watchShipment(widget.shipmentId).listen((row) {
+        if (!mounted || row.isEmpty) return;
+        setState(() {
+          info = <String, dynamic>{
+            ...?info,
+            'shipment_status': row['status'],
+            'pickup_address': row['pickup_address'],
+            'dropoff_address': row['dropoff_address'],
+            'pickup_lat': row['pickup_lat'],
+            'pickup_lng': row['pickup_lng'],
+            'dropoff_lat': row['dropoff_lat'],
+            'dropoff_lng': row['dropoff_lng'],
+            'estimated_price': row['estimated_price'],
+            'public_code': row['public_code'],
+          };
+        });
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() { loading = false; error = e.toString().replaceFirst('Bad state: ', ''); });
@@ -58,6 +76,7 @@ class _CustomerAssignedCourierPageState extends State<CustomerAssignedCourierPag
   @override
   void dispose() {
     courierSub?.cancel();
+    shipmentSub?.cancel();
     super.dispose();
   }
 

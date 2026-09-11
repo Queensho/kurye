@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'courier_active_job_page.dart';
+import 'courier_active_job_realtime_page.dart';
 import 'courier_bottom_nav.dart';
 import 'courier_earnings_page.dart';
 import 'courier_home_page.dart';
@@ -35,13 +35,10 @@ class CourierAssignedJobsPage extends StatelessWidget {
   }
 
   void _openJob(BuildContext context, Map<String, dynamic> item) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => CourierActiveJobPage(
-      shipmentId: item['id']?.toString(),
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => CourierActiveJobRealtimePage(
+      shipmentId: item['id'].toString(),
       pickup: (item['pickup_address'] ?? '').toString(),
       dropoff: (item['dropoff_address'] ?? '').toString(),
-      pickupKm: '0 km',
-      totalKm: '${item['distance_km'] ?? 0} km',
-      duration: '${item['duration_min'] ?? 0} dk',
       earning: ((item['courier_earning'] ?? item['estimated_price'] ?? 0) as num?)?.round() ?? 0,
     )));
   }
