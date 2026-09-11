@@ -29,10 +29,12 @@ class _CourierHomePageState extends State<CourierHomePage> {
   Map<String, dynamic> profile = {};
   Map<String, dynamic> earnings = {};
   List<Map<String, dynamic>> courierShipments = [];
+  late final Stream<List<Map<String, dynamic>>> poolStream;
 
   @override
   void initState() {
     super.initState();
+    poolStream = data.watchCourierPool();
     _loadDashboard();
   }
 
@@ -237,7 +239,7 @@ class _CourierHomePageState extends State<CourierHomePage> {
                 _filters(s),
                 Expanded(
                   child: StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: data.watchCourierPool(),
+                    stream: poolStream,
                     builder: (context, snapshot) {
                       final jobs = online
                           ? (snapshot.data ?? const <Map<String, dynamic>>[])
