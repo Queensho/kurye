@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '.github/workflows/patch_customer_production.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,7 +21,6 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          # Profile: richer saved-address records + support history entry.
           p = Path('lib/customer_profile_page.dart')
           s = p.read_text()
           s = s.replace("import 'customer_phone_auth_page.dart';\nimport 'data/app_data_service.dart';\n", "import 'customer_phone_auth_page.dart';\nimport 'customer_support_tickets_page.dart';\nimport 'data/app_data_service.dart';\nimport 'data/customer_delivery_extensions.dart';\n")
@@ -115,7 +115,6 @@ jobs:
           s = s.replace(menu, menu + "                  _MenuData(Icons.support_agent_rounded, 'Destek Taleplerim', 'Açık, inceleniyor ve çözülen kayıtlar', _openSupportTickets),\n")
           p.write_text(s)
 
-          # Create flow: keep full saved-address profile and prefill shipment details.
           p = Path('lib/customer_create_shipment_page_v3.dart')
           s = p.read_text()
           s = s.replace("  List<Map<String, dynamic>> savedAddresses = [];\n", "  List<Map<String, dynamic>> savedAddresses = [];\n  Map<String, dynamic>? pickupSavedProfile;\n  Map<String, dynamic>? dropoffSavedProfile;\n")
@@ -206,7 +205,6 @@ jobs:
           s = s.replace(call, replacement, 1)
           p.write_text(s)
 
-          # Shipment details: recipient/contact/address fields + backend persistence.
           p = Path('lib/shipment_details_step_page.dart')
           s = p.read_text()
           s = s.replace("import 'data/app_data_service.dart';\n", "import 'data/app_data_service.dart';\nimport 'data/customer_delivery_extensions.dart';\n")
@@ -396,7 +394,6 @@ jobs:
           s = s.replace(confirm, confirm_new, 1)
           p.write_text(s)
 
-          # Live tracking: road polyline + ETA / remaining distance.
           p = Path('lib/customer_live_tracking_page.dart')
           s = p.read_text()
           s = s.replace("import 'courier_search_page.dart';\n", "import 'courier_search_page.dart';\nimport 'customer_route_overlay.dart';\n")
