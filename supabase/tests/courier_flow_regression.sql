@@ -18,11 +18,15 @@ begin
     (v_courier1,'authenticated','authenticated',now(),now(),false,false),
     (v_courier2,'authenticated','authenticated',now(),now(),false,false);
 
-  insert into public.profiles(id,full_name,account_status)
-  values
-    (v_customer,'Test Customer','active'),
-    (v_courier1,'Test Courier 1','active'),
-    (v_courier2,'Test Courier 2','active');
+  -- Auth user creation already seeds profile rows in this project.
+  update public.profiles
+  set full_name=case id
+    when v_customer then 'Test Customer'
+    when v_courier1 then 'Test Courier 1'
+    when v_courier2 then 'Test Courier 2'
+    else full_name end,
+    account_status='active'
+  where id in (v_customer,v_courier1,v_courier2);
 
   insert into public.couriers(user_id,is_approved,is_online,vehicle_type,last_seen_at)
   values
