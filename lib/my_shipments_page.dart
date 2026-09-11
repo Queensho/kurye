@@ -51,6 +51,8 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
     switch ((raw ?? '').toString()) {
       case 'document': return 'Evrak';
       case 'food': return 'Market';
+      case 'market': return 'Market';
+      case 'gift': return 'Hediye';
       case 'other': return 'Gönderi';
       default: return 'Paket';
     }
@@ -60,8 +62,7 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
     final text = (raw ?? '').toString().trim();
     if (text.isEmpty) return 'Adres bilgisi yok';
     final parts = text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-    if (parts.isEmpty) return text;
-    return parts.take(3).join(', ');
+    return parts.isEmpty ? text : parts.take(3).join(', ');
   }
 
   String _money(dynamic value) {
@@ -80,6 +81,17 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
     final h = dt.hour.toString().padLeft(2, '0');
     final min = dt.minute.toString().padLeft(2, '0');
     return '$d.$m.${dt.year} $h:$min';
+  }
+
+  void _openShipment(Map<String, dynamic> item) {
+    final id = item['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    final status = (item['status'] ?? '').toString();
+    if (status == 'searching') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => CourierSearchPage(shipmentId: id)));
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => CustomerLiveTrackingPage(shipmentId: id)));
   }
 
   @override
@@ -133,11 +145,7 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
                         ),
                       ],
                     ),
-                    Positioned(
-                      right: 16 * s,
-                      bottom: 18 * s,
-                      child: _newShipmentButton(context, s),
-                    ),
+                    Positioned(right: 16 * s, bottom: 18 * s, child: _newShipmentButton(context, s)),
                   ],
                 );
               },
@@ -186,11 +194,7 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         height: 52 * s,
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(16 * s),
-          border: selected ? Border.all(color: orange, width: 1) : null,
-        ),
+        decoration: BoxDecoration(color: selected ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(16 * s), border: selected ? Border.all(color: orange, width: 1) : null),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(label, style: TextStyle(color: selected ? orange : muted, fontSize: 12.5 * s, fontWeight: FontWeight.w800)),
           SizedBox(width: 8 * s),
@@ -240,18 +244,7 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
     final price = _money(item['estimated_price']);
 
     return InkWell(
-      onTap: () {
-        final id = item['id']?.toString();
-        if (id == null || id.isEmpty) return;
-
-        if (status == 'searching') {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => CourierSearchPage(shipmentId: id)));
-        } else if (active) {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => CustomerLiveTrackingPage(shipmentId: id)));
-        } else {
-          _showShipment(item);
-        }
-      },
+      onTap: () => _openShipment(item),
       borderRadius: BorderRadius.circular(17 * s),
       child: Container(
         height: 102 * s,
@@ -270,7 +263,7 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
                 Icon(Icons.chevron_right_rounded, color: muted, size: 21 * s),
               ]),
               SizedBox(height: 3 * s),
-              Text('${code.isEmpty ? '' : '#$code  •  '}$type${weight.isEmpty ? '' : '  •  $weight'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontSize: 10 * s, fontWeight: FontWeight.w500)),
+              Text('${code.isEmpty ? '' : '$code  •  '}$type${weight.isEmpty ? '' : '  •  $weight'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontSize: 10 * s, fontWeight: FontWeight.w500)),
               const Spacer(),
               Row(children: [
                 Container(
@@ -283,8 +276,11 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
                   Icon(status == 'searching' ? Icons.search_rounded : Icons.my_location_rounded, color: orange, size: 18 * s),
                   SizedBox(width: 5 * s),
                   Text(status == 'searching' ? 'Kurye Aranıyor' : 'Canlı Takip', style: TextStyle(color: orange, fontSize: 10 * s, fontWeight: FontWeight.w900)),
-                ] else
+                ] else ...[
+                  Icon(Icons.receipt_long_rounded, color: muted, size: 16 * s),
+                  SizedBox(width: 4 * s),
                   Text(_dateLabel(item['created_at']), style: TextStyle(color: muted, fontSize: 9 * s)),
+                ],
               ]),
             ]),
           ),
@@ -319,26 +315,4 @@ class _MyShipmentsPageState extends State<MyShipmentsPage> {
       ),
     ),
   );
-
-  void _showShipment(Map<String, dynamic> item) {
-    final status = (item['status'] ?? '').toString();
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${item['public_code'] ?? ''} • ${_statusLabel(status)}', style: const TextStyle(fontSize: 20, color: navy, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 12),
-          Text('${item['pickup_address'] ?? ''}\n→ ${item['dropoff_address'] ?? ''}', style: const TextStyle(fontSize: 15, color: navy, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          Text('${_typeLabel(item['package_type'])} • ${item['weight_label'] ?? 'Ağırlık belirtilmedi'} • ${item['payment_type'] == 'online' ? 'Online' : 'Nakit'} • ${_money(item['estimated_price'])}', style: const TextStyle(color: muted)),
-          const SizedBox(height: 20),
-          SizedBox(width: double.infinity, child: FilledButton(style: FilledButton.styleFrom(backgroundColor: orange), onPressed: () => Navigator.pop(context), child: const Text('Kapat'))),
-        ]),
-      ),
-    );
-  }
 }
