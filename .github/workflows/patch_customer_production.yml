@@ -1,0 +1,496 @@
+name: Patch Customer Production
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch_customer_production.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch customer production flows
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Profile: richer saved-address records + support history entry.
+          p = Path('lib/customer_profile_page.dart')
+          s = p.read_text()
+          s = s.replace("import 'customer_phone_auth_page.dart';\nimport 'data/app_data_service.dart';\n", "import 'customer_phone_auth_page.dart';\nimport 'customer_support_tickets_page.dart';\nimport 'data/app_data_service.dart';\nimport 'data/customer_delivery_extensions.dart';\n")
+          old = '''  Future<void> _addAddress() async {
+    final label = TextEditingController();
+    final address = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Adres Ekle', style: TextStyle(color: navy, fontWeight: FontWeight.w900)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: label, decoration: const InputDecoration(labelText: 'Adres adı', hintText: 'Ev, İş...')),
+          const SizedBox(height: 10),
+          TextField(controller: address, maxLines: 3, decoration: const InputDecoration(labelText: 'Açık adres')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+          FilledButton(style: FilledButton.styleFrom(backgroundColor: orange), onPressed: () => Navigator.pop(context, true), child: const Text('Kaydet')),
+        ],
+      ),
+    );
+    if (saved != true || label.text.trim().isEmpty || address.text.trim().isEmpty) return;
+    await data.addAddress(label: label.text.trim(), addressLine: address.text.trim(), isDefault: addresses.isEmpty);
+    await _load();
+  }
+'''
+          new = '''  Future<void> _addAddress() async {
+    final label = TextEditingController();
+    final address = TextEditingController();
+    final contactName = TextEditingController(text: (profile['full_name'] ?? '').toString());
+    final contactPhone = TextEditingController(text: (profile['phone'] ?? '').toString());
+    final building = TextEditingController();
+    final floor = TextEditingController();
+    final apartment = TextEditingController();
+    final doorNote = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Adres Ekle', style: TextStyle(color: navy, fontWeight: FontWeight.w900)),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: label, decoration: const InputDecoration(labelText: 'Adres adı', hintText: 'Ev, İş...')),
+            const SizedBox(height: 10),
+            TextField(controller: address, maxLines: 3, decoration: const InputDecoration(labelText: 'Açık adres')),
+            const SizedBox(height: 10),
+            TextField(controller: contactName, decoration: const InputDecoration(labelText: 'Kişi adı')),
+            const SizedBox(height: 10),
+            TextField(controller: contactPhone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Telefon')),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: TextField(controller: building, decoration: const InputDecoration(labelText: 'Bina / Blok'))),
+              const SizedBox(width: 8),
+              Expanded(child: TextField(controller: floor, decoration: const InputDecoration(labelText: 'Kat'))),
+              const SizedBox(width: 8),
+              Expanded(child: TextField(controller: apartment, decoration: const InputDecoration(labelText: 'Daire'))),
+            ]),
+            const SizedBox(height: 10),
+            TextField(controller: doorNote, maxLines: 2, decoration: const InputDecoration(labelText: 'Kapı / kurye notu')),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+          FilledButton(style: FilledButton.styleFrom(backgroundColor: orange), onPressed: () => Navigator.pop(context, true), child: const Text('Kaydet')),
+        ],
+      ),
+    );
+    if (saved != true || label.text.trim().isEmpty || address.text.trim().isEmpty) return;
+    await data.saveDetailedAddress(
+      label: label.text.trim(),
+      addressLine: address.text.trim(),
+      contactName: contactName.text.trim(),
+      contactPhone: contactPhone.text.trim(),
+      buildingName: building.text.trim(),
+      floorNo: floor.text.trim(),
+      apartmentNo: apartment.text.trim(),
+      doorNote: doorNote.text.trim(),
+      isDefault: addresses.isEmpty,
+    );
+    await _load();
+  }
+'''
+          if old not in s:
+              raise SystemExit('profile _addAddress target not found')
+          s = s.replace(old, new)
+          needle = "  void _openHelp() => _infoSheet('Yardım & Destek', const [\n"
+          if needle not in s:
+              raise SystemExit('profile support method target not found')
+          s = s.replace(needle, "  void _openSupportTickets() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerSupportTicketsPage()));\n\n" + needle)
+          menu = "                  _MenuData(Icons.help_rounded, 'Yardım & Destek', 'SSS ve destek', _openHelp),\n"
+          if menu not in s:
+              raise SystemExit('profile support menu target not found')
+          s = s.replace(menu, menu + "                  _MenuData(Icons.support_agent_rounded, 'Destek Taleplerim', 'Açık, inceleniyor ve çözülen kayıtlar', _openSupportTickets),\n")
+          p.write_text(s)
+
+          # Create flow: keep full saved-address profile and prefill shipment details.
+          p = Path('lib/customer_create_shipment_page_v3.dart')
+          s = p.read_text()
+          s = s.replace("  List<Map<String, dynamic>> savedAddresses = [];\n", "  List<Map<String, dynamic>> savedAddresses = [];\n  Map<String, dynamic>? pickupSavedProfile;\n  Map<String, dynamic>? dropoffSavedProfile;\n")
+          old = '''    setState(() {
+      if (target) {
+        pickup = value;
+      } else {
+        dropoff = value;
+      }
+      distanceKm = null;
+      durationMin = null;
+      quotedPrice = null;
+    });
+'''
+          new = '''    setState(() {
+      if (target) {
+        pickup = value;
+        pickupSavedProfile = selected;
+      } else {
+        dropoff = value;
+        dropoffSavedProfile = selected;
+      }
+      distanceKm = null;
+      durationMin = null;
+      quotedPrice = null;
+    });
+'''
+          if old not in s:
+              raise SystemExit('saved address assignment target not found')
+          s = s.replace(old, new, 1)
+          old = '''    setState(() {
+      if (isPickup) {
+        pickup = result;
+      } else {
+        dropoff = result;
+      }
+      distanceKm = null;
+      durationMin = null;
+      quotedPrice = null;
+    });
+'''
+          new = '''    setState(() {
+      if (isPickup) {
+        pickup = result;
+        pickupSavedProfile = null;
+      } else {
+        dropoff = result;
+        dropoffSavedProfile = null;
+      }
+      distanceKm = null;
+      durationMin = null;
+      quotedPrice = null;
+    });
+'''
+          if old not in s:
+              raise SystemExit('manual address assignment target not found')
+          s = s.replace(old, new, 1)
+          helper_needle = "  Future<void> _continue() async {\n"
+          helper = '''  String? _savedAddressDetail(Map<String, dynamic>? value) {
+    if (value == null) return null;
+    final parts = <String>[];
+    final building = (value['building_name'] ?? '').toString().trim();
+    final floor = (value['floor_no'] ?? '').toString().trim();
+    final apartment = (value['apartment_no'] ?? '').toString().trim();
+    if (building.isNotEmpty) parts.add(building);
+    if (floor.isNotEmpty) parts.add('Kat $floor');
+    if (apartment.isNotEmpty) parts.add('Daire $apartment');
+    return parts.isEmpty ? null : parts.join(' • ');
+  }
+
+'''
+          if helper_needle not in s:
+              raise SystemExit('create flow continue target not found')
+          s = s.replace(helper_needle, helper + helper_needle, 1)
+          call = '''        initialWeight: weight,
+        initialSize: size,
+'''
+          replacement = '''        initialWeight: weight,
+        initialSize: size,
+        prefillRecipientName: dropoffSavedProfile?['contact_name']?.toString(),
+        prefillRecipientPhone: dropoffSavedProfile?['contact_phone']?.toString(),
+        prefillPickupDetail: _savedAddressDetail(pickupSavedProfile),
+        prefillDropoffDetail: _savedAddressDetail(dropoffSavedProfile),
+        prefillDoorNote: dropoffSavedProfile?['door_note']?.toString(),
+'''
+          if call not in s:
+              raise SystemExit('details constructor call target not found')
+          s = s.replace(call, replacement, 1)
+          p.write_text(s)
+
+          # Shipment details: recipient/contact/address fields + backend persistence.
+          p = Path('lib/shipment_details_step_page.dart')
+          s = p.read_text()
+          s = s.replace("import 'data/app_data_service.dart';\n", "import 'data/app_data_service.dart';\nimport 'data/customer_delivery_extensions.dart';\n")
+          ctor = '''    required this.initialWeight,
+    required this.initialSize,
+  });
+'''
+          ctor_new = '''    required this.initialWeight,
+    required this.initialSize,
+    this.prefillRecipientName,
+    this.prefillRecipientPhone,
+    this.prefillPickupDetail,
+    this.prefillDropoffDetail,
+    this.prefillDoorNote,
+  });
+'''
+          if ctor not in s:
+              raise SystemExit('shipment details constructor target not found')
+          s = s.replace(ctor, ctor_new, 1)
+          fields = '''  final String initialWeight;
+  final String initialSize;
+'''
+          fields_new = '''  final String initialWeight;
+  final String initialSize;
+  final String? prefillRecipientName;
+  final String? prefillRecipientPhone;
+  final String? prefillPickupDetail;
+  final String? prefillDropoffDetail;
+  final String? prefillDoorNote;
+'''
+          s = s.replace(fields, fields_new, 1)
+          controllers = '''  final _contentController = TextEditingController();
+  final _noteController = TextEditingController();
+'''
+          controllers_new = '''  final _contentController = TextEditingController();
+  final _noteController = TextEditingController();
+  final _recipientNameController = TextEditingController();
+  final _recipientPhoneController = TextEditingController();
+  final _pickupDetailController = TextEditingController();
+  final _dropoffDetailController = TextEditingController();
+  final _doorNoteController = TextEditingController();
+'''
+          s = s.replace(controllers, controllers_new, 1)
+          init = '''    weight = widget.initialWeight;
+    size = widget.initialSize;
+'''
+          init_new = '''    weight = widget.initialWeight;
+    size = widget.initialSize;
+    _recipientNameController.text = widget.prefillRecipientName ?? '';
+    _recipientPhoneController.text = widget.prefillRecipientPhone ?? '';
+    _pickupDetailController.text = widget.prefillPickupDetail ?? '';
+    _dropoffDetailController.text = widget.prefillDropoffDetail ?? '';
+    _doorNoteController.text = widget.prefillDoorNote ?? '';
+'''
+          s = s.replace(init, init_new, 1)
+          dispose = '''    _contentController.dispose();
+    _noteController.dispose();
+    super.dispose();
+'''
+          dispose_new = '''    _contentController.dispose();
+    _noteController.dispose();
+    _recipientNameController.dispose();
+    _recipientPhoneController.dispose();
+    _pickupDetailController.dispose();
+    _dropoffDetailController.dispose();
+    _doorNoteController.dispose();
+    super.dispose();
+'''
+          s = s.replace(dispose, dispose_new, 1)
+          start = '''  Future<void> _createShipment() async {
+    if (creating) return;
+    setState(() => creating = true);
+'''
+          start_new = '''  Future<void> _createShipment() async {
+    if (creating) return;
+    final recipientName = _recipientNameController.text.trim();
+    final recipientPhone = _recipientPhoneController.text.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (recipientName.length < 2 || recipientPhone.replaceAll(RegExp(r'\\D'), '').length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alıcı adı ve geçerli telefon numarası zorunlu.')));
+      return;
+    }
+    setState(() => creating = true);
+'''
+          if start not in s:
+              raise SystemExit('create shipment start target not found')
+          s = s.replace(start, start_new, 1)
+          old_call = '''      final created = await AppDataService.instance.createShipment(
+        vehicleType: 'motorcycle',
+        packageType: packageTypes[widget.packageIndex.clamp(0, 3)],
+        pickupAddress: widget.pickup.displayName,
+        dropoffAddress: widget.dropoff.displayName,
+        pickupLat: widget.pickup.lat,
+        pickupLng: widget.pickup.lng,
+        dropoffLat: widget.dropoff.lat,
+        dropoffLng: widget.dropoff.lng,
+        weightLabel: weight,
+        sizeLabel: size,
+        note: _combinedNote().isEmpty ? null : _combinedNote(),
+        distanceKm: widget.distanceKm,
+        durationMin: widget.durationMin,
+        estimatedPrice: widget.quotedPrice,
+        paymentType: widget.paymentIndex == 0 ? 'cash' : 'online',
+        paymentMethodId: widget.paymentIndex == 1 ? widget.selectedCardId : null,
+      );
+'''
+          new_call = '''      final created = await AppDataService.instance.createShipmentWithRecipient(
+        vehicleType: 'motorcycle',
+        packageType: packageTypes[widget.packageIndex.clamp(0, 3)],
+        pickupAddress: widget.pickup.displayName,
+        dropoffAddress: widget.dropoff.displayName,
+        pickupLat: widget.pickup.lat,
+        pickupLng: widget.pickup.lng,
+        dropoffLat: widget.dropoff.lat,
+        dropoffLng: widget.dropoff.lng,
+        weightLabel: weight,
+        sizeLabel: size,
+        note: _combinedNote().isEmpty ? null : _combinedNote(),
+        distanceKm: widget.distanceKm,
+        durationMin: widget.durationMin,
+        paymentType: widget.paymentIndex == 0 ? 'cash' : 'online',
+        paymentMethodId: widget.paymentIndex == 1 ? widget.selectedCardId : null,
+        recipientName: recipientName,
+        recipientPhone: recipientPhone,
+        pickupDetail: _pickupDetailController.text.trim(),
+        dropoffDetail: _dropoffDetailController.text.trim(),
+        doorNote: _doorNoteController.text.trim(),
+      );
+'''
+          if old_call not in s:
+              raise SystemExit('createShipment target not found')
+          s = s.replace(old_call, new_call, 1)
+          details = '''        children: [
+          _packageDetailsCard(s),
+'''
+          details_new = '''        children: [
+          _recipientCard(s),
+          SizedBox(height: 10 * s),
+          _packageDetailsCard(s),
+'''
+          if details not in s:
+              raise SystemExit('details children target not found')
+          s = s.replace(details, details_new, 1)
+          method_needle = "  Widget _packageDetailsCard(double s) {\n"
+          recipient_method = '''  Widget _recipientCard(double s) {
+    return Container(
+      padding: EdgeInsets.all(14 * s),
+      decoration: _cardDecoration(s),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          _iconBubble(Icons.person_pin_circle_outlined, s),
+          SizedBox(width: 10 * s),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Alıcı ve Adres Detayı', style: TextStyle(color: navy, fontSize: 14 * s, fontWeight: FontWeight.w900)),
+            SizedBox(height: 2 * s),
+            Text('Kurye teslimatta bu bilgileri kullanır.', style: TextStyle(color: muted, fontSize: 10.5 * s)),
+          ])),
+        ]),
+        SizedBox(height: 12 * s),
+        TextField(controller: _recipientNameController, decoration: const InputDecoration(labelText: 'Alıcı Ad Soyad', border: OutlineInputBorder())),
+        SizedBox(height: 9 * s),
+        TextField(controller: _recipientPhoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Alıcı Telefon', border: OutlineInputBorder())),
+        SizedBox(height: 9 * s),
+        TextField(controller: _pickupDetailController, decoration: const InputDecoration(labelText: 'Alım bina / kat / daire', border: OutlineInputBorder())),
+        SizedBox(height: 9 * s),
+        TextField(controller: _dropoffDetailController, decoration: const InputDecoration(labelText: 'Teslimat bina / kat / daire', border: OutlineInputBorder())),
+        SizedBox(height: 9 * s),
+        TextField(controller: _doorNoteController, maxLines: 2, decoration: const InputDecoration(labelText: 'Kapı / teslimat notu', border: OutlineInputBorder())),
+      ]),
+    );
+  }
+
+'''
+          if method_needle not in s:
+              raise SystemExit('recipient method insertion target not found')
+          s = s.replace(method_needle, recipient_method + method_needle, 1)
+          confirm = '''            _summaryRow('Teslimat', widget.dropoff.displayName, s),
+            _summaryRow('Paket', '$weight • $size', s),
+'''
+          confirm_new = '''            _summaryRow('Teslimat', widget.dropoff.displayName, s),
+            _summaryRow('Alıcı', '${_recipientNameController.text} • ${_recipientPhoneController.text}', s),
+            if (_dropoffDetailController.text.trim().isNotEmpty) _summaryRow('Adres Detayı', _dropoffDetailController.text.trim(), s),
+            if (_doorNoteController.text.trim().isNotEmpty) _summaryRow('Kapı Notu', _doorNoteController.text.trim(), s),
+            _summaryRow('Paket', '$weight • $size', s),
+'''
+          if confirm not in s:
+              raise SystemExit('confirmation target not found')
+          s = s.replace(confirm, confirm_new, 1)
+          p.write_text(s)
+
+          # Live tracking: road polyline + ETA / remaining distance.
+          p = Path('lib/customer_live_tracking_page.dart')
+          s = p.read_text()
+          s = s.replace("import 'courier_search_page.dart';\n", "import 'courier_search_page.dart';\nimport 'customer_route_overlay.dart';\n")
+          state = '''  bool loadingCourier = false;
+  bool actionBusy = false;
+'''
+          state_new = '''  bool loadingCourier = false;
+  bool actionBusy = false;
+  int? routeEtaMin;
+  double? routeDistanceKm;
+
+  void _updateRouteEta(int? eta, double? km) {
+    final sameEta = routeEtaMin == eta;
+    final sameKm = (routeDistanceKm == null && km == null) ||
+        (routeDistanceKm != null && km != null && (routeDistanceKm! - km).abs() < .05);
+    if (!mounted || (sameEta && sameKm)) return;
+    setState(() {
+      routeEtaMin = eta;
+      routeDistanceKm = km;
+    });
+  }
+'''
+          if state not in s:
+              raise SystemExit('route state target not found')
+          s = s.replace(state, state_new, 1)
+          points = '''    final pickupPoint = pickupLat != null && pickupLng != null ? LatLng(pickupLat, pickupLng) : null;
+    final dropPoint = dropLat != null && dropLng != null ? LatLng(dropLat, dropLng) : null;
+'''
+          points_new = '''    final pickupPoint = pickupLat != null && pickupLng != null ? LatLng(pickupLat, pickupLng) : null;
+    final dropPoint = dropLat != null && dropLng != null ? LatLng(dropLat, dropLng) : null;
+    final routeTarget = status == 'delivered' || status == 'cancelled'
+        ? null
+        : (status == 'picked_up' || status == 'at_dropoff' ? dropPoint : pickupPoint);
+'''
+          if points not in s:
+              raise SystemExit('route target point block not found')
+          s = s.replace(points, points_new, 1)
+          tile = '''                          TileLayer(
+                            urlTemplate: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.queensho.kurye',
+                          ),
+                          MarkerLayer(markers: [
+'''
+          tile_new = '''                          TileLayer(
+                            urlTemplate: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.queensho.kurye',
+                          ),
+                          CustomerRouteOverlay(
+                            courierPoint: stale ? null : courierPoint,
+                            targetPoint: routeTarget,
+                            onEtaChanged: _updateRouteEta,
+                          ),
+                          MarkerLayer(markers: [
+'''
+          if tile not in s:
+              raise SystemExit('map tile target not found')
+          s = s.replace(tile, tile_new, 1)
+          recenter = '''                    if (courierPoint != null)
+                      Positioned(
+                        right: 16,
+                        bottom: 16,
+'''
+          badge = '''                    if (courierPoint != null && routeEtaMin != null && routeTarget != null)
+                      Positioned(
+                        left: 14,
+                        top: 14,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 12)]),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.route_rounded, color: Color(0xFF6C5CE7), size: 18),
+                            const SizedBox(width: 7),
+                            Text('${routeEtaMin} dk${routeDistanceKm == null ? '' : ' • ${routeDistanceKm!.toStringAsFixed(1)} km'}', style: const TextStyle(color: navy, fontWeight: FontWeight.w900, fontSize: 12)),
+                          ]),
+                        ),
+                      ),
+                    if (courierPoint != null)
+                      Positioned(
+                        right: 16,
+                        bottom: 16,
+'''
+          if recenter not in s:
+              raise SystemExit('recenter insertion target not found')
+          s = s.replace(recenter, badge, 1)
+          p.write_text(s)
+          PY
+      - name: Commit customer production patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/customer_profile_page.dart lib/customer_create_shipment_page_v3.dart lib/shipment_details_step_page.dart lib/customer_live_tracking_page.dart
+          git commit -m "Complete customer address support route UX"
+          git push origin main
