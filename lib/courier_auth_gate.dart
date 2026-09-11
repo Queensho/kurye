@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'courier_active_job_realtime_page.dart';
 import 'courier_auth_page.dart';
 import 'data/app_data_service.dart';
 
@@ -14,25 +15,81 @@ class CourierAuthGate extends StatefulWidget {
   State<CourierAuthGate> createState() => _CourierAuthGateState();
 }
 
-class _CourierAuthGateState extends State<CourierAuthGate> {
+class _CourierAuthGateState extends State<CourierAuthGate>
+    with WidgetsBindingObserver {
   final data = AppDataService.instance;
   StreamSubscription? authSub;
+  Timer? heartbeatTimer;
   bool checking = true;
   bool allowed = false;
   bool pendingApproval = false;
+  bool courierOnline = false;
+  Map<String, dynamic>? activeShipment;
   String? message;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     authSub = data.client.auth.onAuthStateChange.listen((_) => _check());
     _check();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    heartbeatTimer?.cancel();
     authSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && allowed && courierOnline) {
+      _startPresence();
+      _refreshActiveShipment();
+    }
+  }
+
+  Future<void> _startPresence() async {
+    heartbeatTimer?.cancel();
+    if (!data.isSignedIn || !courierOnline) return;
+
+    Future<void> beat() async {
+      if (!data.isSignedIn || !courierOnline) return;
+      try {
+        final value = await data.client.rpc('courier_heartbeat');
+        if (value is Map && value['is_online'] != true) {
+          courierOnline = false;
+          heartbeatTimer?.cancel();
+          if (mounted) setState(() {});
+        }
+      } catch (_) {
+        // Ağ kesintisinde heartbeat gönderilemez. Sunucu 3 dakika içinde
+        // stale kuryeyi otomatik offline yapar.
+      }
+    }
+
+    await beat();
+    if (!courierOnline) return;
+    unawaited(data.startCourierLocationTracking());
+    heartbeatTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => unawaited(beat()),
+    );
+  }
+
+  Future<void> _refreshActiveShipment() async {
+    if (!data.isSignedIn || !allowed) return;
+    try {
+      final value = await data.client.rpc('get_active_courier_shipment');
+      if (!mounted) return;
+      setState(() {
+        activeShipment = value == null
+            ? null
+            : Map<String, dynamic>.from(value as Map);
+      });
+    } catch (_) {}
   }
 
   Future<void> _check() async {
@@ -44,6 +101,9 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
     });
 
     if (!data.isSignedIn) {
+      heartbeatTimer?.cancel();
+      courierOnline = false;
+      activeShipment = null;
       if (!mounted) return;
       setState(() {
         checking = false;
@@ -57,6 +117,7 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
       if (!mounted) return;
 
       if (value == null) {
+        heartbeatTimer?.cancel();
         await data.signOut();
         if (!mounted) return;
         setState(() {
@@ -70,6 +131,7 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
       final courier = Map<String, dynamic>.from(value as Map);
 
       if (courier['account_status'] == 'suspended') {
+        heartbeatTimer?.cancel();
         await data.signOut();
         if (!mounted) return;
         setState(() {
@@ -81,6 +143,8 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
       }
 
       if (courier['is_approved'] != true) {
+        heartbeatTimer?.cancel();
+        courierOnline = false;
         setState(() {
           checking = false;
           allowed = false;
@@ -89,12 +153,26 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
         return;
       }
 
+      courierOnline = courier['is_online'] == true;
+      final active = await data.client.rpc('get_active_courier_shipment');
+      if (!mounted) return;
+
       setState(() {
         checking = false;
         allowed = true;
         pendingApproval = false;
+        activeShipment = active == null
+            ? null
+            : Map<String, dynamic>.from(active as Map);
       });
+
+      if (courierOnline) {
+        unawaited(_startPresence());
+      } else {
+        heartbeatTimer?.cancel();
+      }
     } catch (e) {
+      heartbeatTimer?.cancel();
       if (!mounted) return;
       setState(() {
         checking = false;
@@ -105,8 +183,57 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
   }
 
   Future<void> _logout() async {
+    heartbeatTimer?.cancel();
+    try {
+      if (data.isSignedIn && courierOnline) {
+        await data.setCourierOnline(online: false);
+      }
+    } catch (_) {}
     await data.signOut();
     if (mounted) await _check();
+  }
+
+  Widget _activeJobOrChild() {
+    final row = activeShipment;
+    if (row == null) return widget.child;
+
+    final shipmentId = (row['id'] ?? '').toString();
+    if (shipmentId.isEmpty) return widget.child;
+
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: data.watchShipment(shipmentId),
+      initialData: row,
+      builder: (context, snapshot) {
+        final current = snapshot.data ?? row;
+        final status = (current['status'] ?? '').toString();
+        const activeStatuses = {
+          'accepted',
+          'at_pickup',
+          'picked_up',
+          'at_dropoff',
+        };
+
+        if (!activeStatuses.contains(status)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && activeShipment != null) {
+              setState(() => activeShipment = null);
+            }
+          });
+          return widget.child;
+        }
+
+        return CourierActiveJobRealtimePage(
+          shipmentId: shipmentId,
+          pickup: (current['pickup_address'] ?? '').toString(),
+          dropoff: (current['dropoff_address'] ?? '').toString(),
+          earning: ((current['courier_earning'] ??
+                      current['estimated_price'] ??
+                      0)
+                  as num)
+              .round(),
+        );
+      },
+    );
   }
 
   @override
@@ -175,6 +302,6 @@ class _CourierAuthGateState extends State<CourierAuthGate> {
       );
     }
 
-    return widget.child;
+    return _activeJobOrChild();
   }
 }
