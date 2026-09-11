@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -133,18 +134,54 @@ class AppDataService {
   }
 
   Future<void> startCourierLocationTracking() async {
-    if (_courierPositionSubscription != null) return;
+    if (_courierPositionSubscription != null || !isSignedIn) return;
     if (!await Geolocator.isLocationServiceEnabled()) return;
+
     var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return;
+    }
+
+    final LocationSettings settings;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      settings = const AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 15,
+        intervalDuration: Duration(seconds: 15),
+        foregroundNotificationConfig: ForegroundNotificationConfig(
+          notificationTitle: 'Kurye konumu aktif',
+          notificationText: 'Online olduğun sürece teslimatlar için konumun güncelleniyor.',
+          notificationChannelName: 'Kurye konum takibi',
+          enableWakeLock: true,
+          setOngoing: true,
+        ),
+      );
+    } else {
+      settings = const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 15,
+      );
+    }
+
     try {
-      final first = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+      final first = await Geolocator.getCurrentPosition(locationSettings: settings);
       await updateCourierLocation(first.latitude, first.longitude);
     } catch (_) {}
-    _courierPositionSubscription = Geolocator.getPositionStream(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 15)).listen((position) async {
-      try { await updateCourierLocation(position.latitude, position.longitude); } catch (_) {}
-    });
+
+    _courierPositionSubscription = Geolocator.getPositionStream(
+      locationSettings: settings,
+    ).listen(
+      (position) async {
+        try { await updateCourierLocation(position.latitude, position.longitude); } catch (_) {}
+      },
+      onError: (_) async {
+        await stopCourierLocationTracking();
+      },
+    );
   }
 
   Future<void> stopCourierLocationTracking() async { await _courierPositionSubscription?.cancel(); _courierPositionSubscription = null; }
