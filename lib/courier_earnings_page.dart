@@ -8,109 +8,33 @@ class CourierEarningsPage extends StatefulWidget {
 }
 
 class _CourierEarningsPageState extends State<CourierEarningsPage>{
-  static const blue=Color(0xFF168CF5), navy=Color(0xFF10213E), green=Color(0xFF10B866), muted=Color(0xFF718198), red=Color(0xFFFF4D67);
+  static const purple=Color(0xFF5120D5), deep=Color(0xFF25106E), navy=Color(0xFF171052), green=Color(0xFF16C873), orange=Color(0xFFFF7A36), muted=Color(0xFF7B7890), bg=Color(0xFFF7F7FA);
   final data=AppDataService.instance;
-  Map<String,dynamic> summary={};
-  Map<String,dynamic>? bank;
-  bool loading=true;
-
+  Map<String,dynamic> summary={}; Map<String,dynamic>? bank; bool loading=true;
   @override void initState(){super.initState();_load();}
-  Future<void> _load() async {
-    try{
-      final values=await Future.wait([data.getCourierEarningsSummary(),data.getCourierBankAccount()]);
-      if(mounted)setState((){summary=Map<String,dynamic>.from(values[0] as Map);bank=values[1] as Map<String,dynamic>?;loading=false;});
-    }catch(e){if(mounted){setState(()=>loading=false);_msg(e.toString().replaceFirst('Bad state: ',''));}}
-  }
-  int v(String key)=>(summary[key] as num?)?.toInt()??0;
-  String money(int n)=>'₺${n.toString()}';
-  String date(dynamic raw){final d=DateTime.tryParse((raw??'').toString())?.toLocal();if(d==null)return '';return '${d.day.toString().padLeft(2,'0')}.${d.month.toString().padLeft(2,'0')}.${d.year} ${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';}
-  void _msg(String text)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(text)));
+  Future<void> _load()async{try{final x=await Future.wait([data.getCourierEarningsSummary(),data.getCourierBankAccount()]);if(mounted)setState((){summary=Map<String,dynamic>.from(x[0] as Map);bank=x[1] as Map<String,dynamic>?;loading=false;});}catch(_){if(mounted)setState(()=>loading=false);}}
+  double n(String k)=>(summary[k] as num?)?.toDouble()??0;
+  String money(dynamic x){final v=x is num?x.toDouble():0;return v==v.roundToDouble()?'₺${v.toInt()}':'₺${v.toStringAsFixed(2)}';}
+  String time(dynamic raw){final d=DateTime.tryParse((raw??'').toString())?.toLocal();if(d==null)return '';return '${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';}
+  void msg(String t)=>ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(t)));
 
-  Future<void> _bankDialog() async {
-    final holder=TextEditingController(text:(bank?['account_holder']??'').toString());
-    final bankName=TextEditingController(text:(bank?['bank_name']??'').toString());
-    final iban=TextEditingController();
-    final ok=await showModalBottomSheet<bool>(
-      context:context,isScrollControlled:true,showDragHandle:true,
-      builder:(c)=>Padding(
-        padding:EdgeInsets.fromLTRB(18,4,18,MediaQuery.of(c).viewInsets.bottom+22),
-        child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-          const Text('Banka Hesabı',style:TextStyle(fontSize:21,fontWeight:FontWeight.w900,color:navy)),
-          const SizedBox(height:5),
-          Text(bank==null?'Hakediş ödemeleri için IBAN bilgilerini kaydet.':'Kayıtlı IBAN: ${bank?['iban_masked']??'••••'}',style:const TextStyle(color:muted)),
-          const SizedBox(height:16),
-          TextField(controller:holder,textCapitalization:TextCapitalization.words,decoration:_input('Hesap sahibi',Icons.person_outline_rounded)),
-          const SizedBox(height:10),
-          TextField(controller:bankName,decoration:_input('Banka adı',Icons.account_balance_outlined)),
-          const SizedBox(height:10),
-          TextField(controller:iban,textCapitalization:TextCapitalization.characters,keyboardType:TextInputType.text,decoration:_input('Yeni IBAN (TR...)',Icons.credit_card_rounded)),
-          const SizedBox(height:8),
-          const Text('Güvenlik için mevcut IBAN tam olarak gösterilmez. Değiştirmek için yeni IBANı tekrar gir.',style:TextStyle(color:muted,fontSize:11,height:1.35)),
-          const SizedBox(height:16),
-          FilledButton(onPressed:()=>Navigator.pop(c,true),style:FilledButton.styleFrom(minimumSize:const Size.fromHeight(54),backgroundColor:blue),child:const Text('Kaydet',style:TextStyle(fontWeight:FontWeight.w900))),
-        ])),
-      ),
-    );
-    if(ok==true){
-      if(iban.text.trim().isEmpty){_msg('IBAN alanını doldur.');}
-      else{
-        try{
-          final saved=await data.saveCourierBankAccount(accountHolder:holder.text.trim(),bankName:bankName.text.trim(),iban:iban.text.trim());
-          if(mounted)setState(()=>bank=saved);
-          _msg('IBAN kalıcı olarak kaydedildi.');
-        }catch(e){_msg(e.toString().replaceFirst('Bad state: ',''));}
-      }
-    }
-    holder.dispose();bankName.dispose();iban.dispose();
-  }
+  Future<void> _bankDialog()async{final holder=TextEditingController(text:(bank?['account_holder']??'').toString()),bn=TextEditingController(text:(bank?['bank_name']??'').toString()),iban=TextEditingController();final ok=await showModalBottomSheet<bool>(context:context,isScrollControlled:true,showDragHandle:true,builder:(c)=>Padding(padding:EdgeInsets.fromLTRB(18,4,18,MediaQuery.of(c).viewInsets.bottom+22),child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('Banka Hesabı',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900,color:navy)),const SizedBox(height:14),TextField(controller:holder,decoration:_input('Hesap sahibi')),const SizedBox(height:9),TextField(controller:bn,decoration:_input('Banka adı')),const SizedBox(height:9),TextField(controller:iban,decoration:_input('Yeni IBAN (TR...)')),const SizedBox(height:14),SizedBox(width:double.infinity,child:FilledButton(onPressed:()=>Navigator.pop(c,true),style:FilledButton.styleFrom(backgroundColor:purple),child:const Text('Kaydet')))])));if(ok==true&&iban.text.trim().isNotEmpty){try{bank=await data.saveCourierBankAccount(accountHolder:holder.text.trim(),bankName:bn.text.trim(),iban:iban.text.trim());if(mounted)setState((){});}catch(e){msg('$e');}}holder.dispose();bn.dispose();iban.dispose();}
+  InputDecoration _input(String l)=>InputDecoration(labelText:l,filled:true,fillColor:const Color(0xFFF4F2FA),border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none));
 
-  Future<void> _requestPayout() async {
-    if(bank==null){await _bankDialog();if(bank==null)return;}
-    final available=v('available_balance');
-    if(available<=0){_msg('Kullanılabilir bakiyen yok.');return;}
-    final amount=TextEditingController(text:'$available');
-    final ok=await showDialog<bool>(context:context,builder:(d)=>AlertDialog(
-      title:const Text('Ödeme Talebi'),
-      content:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text('Kullanılabilir bakiye: ${money(available)}',style:const TextStyle(fontWeight:FontWeight.w800)),
-        const SizedBox(height:12),
-        TextField(controller:amount,keyboardType:TextInputType.number,decoration:_input('Talep tutarı',Icons.payments_outlined)),
-        const SizedBox(height:10),
-        Text('${bank?['bank_name']??''} • ${bank?['iban_masked']??''}',style:const TextStyle(color:muted,fontSize:12)),
-      ]),
-      actions:[TextButton(onPressed:()=>Navigator.pop(d,false),child:const Text('Vazgeç')),FilledButton(onPressed:()=>Navigator.pop(d,true),child:const Text('Talep Oluştur'))],
-    ));
-    if(ok==true){
-      final n=int.tryParse(amount.text.replaceAll(RegExp(r'[^0-9]'),''))??0;
-      try{await data.requestCourierPayout(n);await _load();_msg('Ödeme talebin oluşturuldu.');}catch(e){_msg(e.toString().replaceFirst('Bad state: ',''));}
-    }
-    amount.dispose();
-  }
+  @override Widget build(BuildContext context)=>Scaffold(backgroundColor:bg,body:SafeArea(bottom:false,child:LayoutBuilder(builder:(context,c){final s=(c.maxWidth/390).clamp(.90,1.08).toDouble();return Column(children:[Expanded(child:RefreshIndicator(onRefresh:_load,child:ListView(padding:EdgeInsets.zero,children:[_hero(s),Transform.translate(offset:Offset(0,-22*s),child:Padding(padding:EdgeInsets.symmetric(horizontal:14*s),child:Column(children:[_totalCard(s),SizedBox(height:10*s),_stats(s),SizedBox(height:19*s),_chart(s),SizedBox(height:20*s),_details(s),SizedBox(height:18*s),_bank(s),SizedBox(height:24*s)])))]))),_bottom(s)]);})));
 
-  InputDecoration _input(String label,IconData icon)=>InputDecoration(labelText:label,prefixIcon:Icon(icon),filled:true,fillColor:const Color(0xFFF4F8FC),border:OutlineInputBorder(borderRadius:BorderRadius.circular(16),borderSide:BorderSide.none));
-
-  @override Widget build(BuildContext context)=>Scaffold(
-    backgroundColor:const Color(0xFFF5FAFF),
-    appBar:AppBar(backgroundColor:Colors.white,surfaceTintColor:Colors.white,title:const Text('Kazançlarım',style:TextStyle(color:navy,fontWeight:FontWeight.w900))),
-    body:RefreshIndicator(onRefresh:_load,child:ListView(padding:const EdgeInsets.fromLTRB(16,16,16,28),children:[
-      if(loading)const LinearProgressIndicator(minHeight:2),
-      Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF168CF5),Color(0xFF55CFFF)]),borderRadius:BorderRadius.circular(26)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        const Text('Kullanılabilir Bakiye',style:TextStyle(color:Color(0xE6FFFFFF),fontWeight:FontWeight.w700)),const SizedBox(height:5),Text(money(v('available_balance')),style:const TextStyle(color:Colors.white,fontSize:36,fontWeight:FontWeight.w900)),const SizedBox(height:14),Row(children:[Expanded(child:_heroStat('Toplam Hakediş',money(v('total_earned')))),Expanded(child:_heroStat('Bonus',money(v('bonus_total'))))]),
-        const SizedBox(height:16),SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:loading?null:_requestPayout,style:FilledButton.styleFrom(backgroundColor:Colors.white,foregroundColor:blue),icon:const Icon(Icons.account_balance_wallet_rounded),label:const Text('Ödeme Talep Et',style:TextStyle(fontWeight:FontWeight.w900))))
-      ])),
-      const SizedBox(height:14),Row(children:[Expanded(child:_summaryCard('Bugün',v('today'))),const SizedBox(width:9),Expanded(child:_summaryCard('Bu Hafta',v('week'))),const SizedBox(width:9),Expanded(child:_summaryCard('Bu Ay',v('month')))]),
-      const SizedBox(height:14),
-      InkWell(onTap:_bankDialog,borderRadius:BorderRadius.circular(20),child:Container(padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(20)),child:Row(children:[CircleAvatar(backgroundColor:blue.withValues(alpha:.12),child:const Icon(Icons.account_balance_rounded,color:blue)),const SizedBox(width:11),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('Ödeme Hesabı',style:TextStyle(color:navy,fontWeight:FontWeight.w900)),const SizedBox(height:2),Text(bank==null?'IBAN ekle':'${bank?['bank_name']??''} • ${bank?['iban_masked']??''}',style:const TextStyle(color:muted,fontSize:11))])),Icon(bank==null?Icons.add_circle_outline_rounded:Icons.edit_outlined,color:blue)]))),
-      const SizedBox(height:22),const Text('Hakediş & Bonus Geçmişi',style:TextStyle(color:navy,fontSize:19,fontWeight:FontWeight.w900)),const SizedBox(height:10),
-      StreamBuilder<List<Map<String,dynamic>>>(stream:data.watchCourierEarnings(),builder:(context,s){final rows=s.data??const[];if(s.connectionState==ConnectionState.waiting&&!s.hasData)return const Center(child:Padding(padding:EdgeInsets.all(20),child:CircularProgressIndicator()));if(rows.isEmpty)return _empty('Henüz hakediş yok','Teslim ettiğin işler ve tanımlanan bonuslar burada görünür.');return Column(children:rows.map(_earningTile).toList());}),
-      const SizedBox(height:22),const Text('Ödeme Geçmişi',style:TextStyle(color:navy,fontSize:19,fontWeight:FontWeight.w900)),const SizedBox(height:10),
-      StreamBuilder<List<Map<String,dynamic>>>(stream:data.watchCourierPayouts(),builder:(context,s){final rows=s.data??const[];if(rows.isEmpty)return _empty('Henüz ödeme kaydı yok','Ödeme talebi oluşturduğunda ve admin işlediğinde burada görünür.');return Column(children:rows.map(_payoutTile).toList());}),
-    ])),
-  );
-
-  Widget _heroStat(String t,String val)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(t,style:const TextStyle(color:Color(0xDFFFFFFF),fontSize:11)),const SizedBox(height:2),Text(val,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:17))]);
-  Widget _summaryCard(String t,int n)=>Container(padding:const EdgeInsets.symmetric(vertical:15,horizontal:8),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18)),child:Column(children:[Text(t,style:const TextStyle(color:muted,fontSize:10.5)),const SizedBox(height:4),Text(money(n),style:const TextStyle(color:navy,fontWeight:FontWeight.w900,fontSize:15))]));
-  Widget _earningTile(Map<String,dynamic> r){final type=(r['entry_type']??'delivery').toString();final bonus=type=='bonus';return Container(margin:const EdgeInsets.only(bottom:9),padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18)),child:Row(children:[CircleAvatar(backgroundColor:(bonus?const Color(0xFFFFB300):green).withValues(alpha:.12),child:Icon(bonus?Icons.card_giftcard_rounded:Icons.check_circle_rounded,color:bonus?const Color(0xFFFFA000):green)),const SizedBox(width:11),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text((r['title']??(bonus?'Bonus':'Teslimat Hakedişi')).toString(),style:const TextStyle(color:navy,fontWeight:FontWeight.w900)),const SizedBox(height:2),Text('${r['description']??''} • ${date(r['created_at'])}',style:const TextStyle(color:muted,fontSize:10.5))])),Text('+${money((r['amount'] as num?)?.toInt()??0)}',style:const TextStyle(color:green,fontSize:16,fontWeight:FontWeight.w900))]));}
-  Widget _payoutTile(Map<String,dynamic> r){final st=(r['status']??'pending').toString();final paid=st=='paid';final failed=st=='failed'||st=='cancelled';final label=switch(st){'paid'=>'Ödendi','processing'=>'İşleniyor','failed'=>'Başarısız','cancelled'=>'İptal','pending'=>'Bekliyor',_=>st};return Container(margin:const EdgeInsets.only(bottom:9),padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18)),child:Row(children:[CircleAvatar(backgroundColor:(failed?red:paid?green:blue).withValues(alpha:.12),child:Icon(Icons.account_balance_rounded,color:failed?red:paid?green:blue)),const SizedBox(width:11),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(label,style:const TextStyle(color:navy,fontWeight:FontWeight.w900)),const SizedBox(height:2),Text('${r['bank_name']??'Banka'} • ${r['iban_last4']==null?'':'•••• ${r['iban_last4']}'} • ${date(r['created_at'])}',style:const TextStyle(color:muted,fontSize:10.5))])),Text(money((r['amount'] as num?)?.toInt()??0),style:const TextStyle(color:navy,fontWeight:FontWeight.w900,fontSize:16))]));}
-  Widget _empty(String t,String s)=>Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18)),child:Column(children:[const Icon(Icons.receipt_long_outlined,color:blue,size:34),const SizedBox(height:7),Text(t,style:const TextStyle(color:navy,fontWeight:FontWeight.w900)),const SizedBox(height:3),Text(s,textAlign:TextAlign.center,style:const TextStyle(color:muted,fontSize:11))]));
+  Widget _hero(double s)=>Container(height:315*s,decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[deep,Color(0xFF4D17C8),Color(0xFF7A20E8)]),borderRadius:BorderRadius.only(bottomLeft:Radius.circular(38),bottomRight:Radius.circular(38))),child:Stack(clipBehavior:Clip.none,children:[Positioned(left:20*s,top:20*s,child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Kazançlarım',style:TextStyle(color:Colors.white,fontSize:28*s,fontWeight:FontWeight.w900)),SizedBox(height:3*s),Row(children:[Icon(Icons.edit_note_rounded,color:Colors.white70,size:16*s),SizedBox(width:4*s),Text('Emeğin Yolunu Açıyor',style:TextStyle(color:Colors.white70,fontSize:11*s))])])),Positioned(right:17*s,top:18*s,child:_period(s)),Positioned(left:22*s,top:142*s,child:Transform.rotate(angle:-.07,child:Text('Daha\nFazla Yol\nDaha Fazla\nKazan!',style:TextStyle(color:Colors.white,fontSize:18*s,height:1.08,fontStyle:FontStyle.italic,fontWeight:FontWeight.w800)))),Positioned(right:-6*s,bottom:-2*s,width:265*s,height:235*s,child:Image.asset('assets/images/Profil3d.png',fit:BoxFit.contain,alignment:Alignment.bottomRight))]));
+  Widget _period(double s)=>Container(padding:EdgeInsets.symmetric(horizontal:13*s,vertical:9*s),decoration:BoxDecoration(color:Colors.white.withValues(alpha:.12),borderRadius:BorderRadius.circular(22*s),border:Border.all(color:Colors.white.withValues(alpha:.08))),child:Row(children:[Icon(Icons.calendar_month_outlined,color:Colors.white,size:16*s),SizedBox(width:7*s),Text('Bu Hafta',style:TextStyle(color:Colors.white,fontSize:10.5*s,fontWeight:FontWeight.w700)),Icon(Icons.keyboard_arrow_down_rounded,color:Colors.white,size:18*s)]));
+  Widget _card({required Widget child,double radius=19})=>Container(decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(radius),boxShadow:const [BoxShadow(color:Color(0x0B000000),blurRadius:14,offset:Offset(0,5))]),child:child);
+  Widget _totalCard(double s)=>_card(child:Padding(padding:EdgeInsets.all(16*s),child:Row(children:[Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Text('Toplam Kazanç',style:TextStyle(color:muted,fontSize:11*s,fontWeight:FontWeight.w600)),SizedBox(width:6*s),Icon(Icons.visibility_off_outlined,color:muted,size:15*s)]),SizedBox(height:4*s),Text(money(n('total_earned')),style:TextStyle(color:navy,fontSize:28*s,fontWeight:FontWeight.w900))])),Column(children:[Container(padding:EdgeInsets.symmetric(horizontal:12*s,vertical:7*s),decoration:BoxDecoration(color:const Color(0xFFE2FAED),borderRadius:BorderRadius.circular(20*s)),child:Text('↑ %12',style:TextStyle(color:green,fontSize:11*s,fontWeight:FontWeight.w900))),SizedBox(height:4*s),Text('Geçen haftaya göre',style:TextStyle(color:muted,fontSize:7.5*s))])])));
+  Widget _stats(double s)=>GridView.count(crossAxisCount:2,shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),childAspectRatio:1.9,mainAxisSpacing:8*s,crossAxisSpacing:8*s,children:[_stat(Icons.inventory_2_rounded,purple,'${n('delivery_count').toInt()}','Teslimat','↑ %20',s),_stat(Icons.schedule_rounded,purple,'${n('active_hours').toInt()}s','Aktif Süre','↑ %8',s),_stat(Icons.route_rounded,const Color(0xFFFF4C55),'${n('distance_km').toInt()} km','Toplam Mesafe','↑ %14',s),_stat(Icons.monetization_on_rounded,orange,money(n('average_per_delivery')),'Paket Başına Ort.','↑ %6',s)]);
+  Widget _stat(IconData i,Color color,String value,String label,String rise,double s)=>_card(child:Padding(padding:EdgeInsets.symmetric(horizontal:12*s),child:Row(children:[Container(width:34*s,height:34*s,decoration:BoxDecoration(color:color.withValues(alpha:.10),shape:BoxShape.circle),child:Icon(i,color:color,size:18*s)),SizedBox(width:9*s),Expanded(child:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.start,children:[Text(value,style:TextStyle(color:navy,fontSize:14*s,fontWeight:FontWeight.w900)),Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(color:muted,fontSize:8*s))])),Text(rise,style:TextStyle(color:green,fontSize:7.5*s,fontWeight:FontWeight.w800))])));
+  Widget _chart(double s){final vals=[.32,.49,.68,.47,.90,.35,.52,.70];final days=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz',''];return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Expanded(child:Text('Kazanç Grafiği',style:TextStyle(color:navy,fontSize:15*s,fontWeight:FontWeight.w900))),_periodLight(s)]),SizedBox(height:13*s),SizedBox(height:148*s,child:Row(crossAxisAlignment:CrossAxisAlignment.end,children:[for(int i=0;i<vals.length;i++)Expanded(child:Column(mainAxisAlignment:MainAxisAlignment.end,children:[if(i==4)Container(padding:EdgeInsets.symmetric(horizontal:8*s,vertical:4*s),decoration:BoxDecoration(color:navy,borderRadius:BorderRadius.circular(10*s)),child:Text(money(n('today')==0?320:n('today')),style:TextStyle(color:Colors.white,fontSize:8*s,fontWeight:FontWeight.w800))),SizedBox(height:3*s),Container(width:22*s,height:98*s*vals[i],decoration:BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:i==4?[purple,const Color(0xFF7135E7)]:[const Color(0xFFB598F2),const Color(0xFFD8C9F8)]),borderRadius:BorderRadius.circular(4*s))),SizedBox(height:5*s),Text(days[i],style:TextStyle(color:muted,fontSize:8*s))]))]))]);}
+  Widget _periodLight(double s)=>Container(padding:EdgeInsets.symmetric(horizontal:11*s,vertical:7*s),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(18*s),border:Border.all(color:const Color(0xFFEAE8F0))),child:Row(children:[Text('Bu Hafta',style:TextStyle(color:navy,fontSize:9*s,fontWeight:FontWeight.w700)),Icon(Icons.keyboard_arrow_down_rounded,color:navy,size:16*s)]));
+  Widget _details(double s)=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Row(children:[Expanded(child:Text('Kazanç Detayları',style:TextStyle(color:navy,fontSize:15*s,fontWeight:FontWeight.w900))),Text('Tümü',style:TextStyle(color:purple,fontSize:10*s,fontWeight:FontWeight.w800))]),SizedBox(height:9*s),StreamBuilder<List<Map<String,dynamic>>>(stream:data.watchCourierEarnings(),builder:(context,snap){final rows=snap.data??const[];if(rows.isEmpty)return _empty(s);return _card(child:Column(children:[for(int i=0;i<rows.take(4).length;i++)_detailRow(rows[i],i,s)]));})]);
+  Widget _detailRow(Map<String,dynamic> r,int index,double s)=>Container(padding:EdgeInsets.symmetric(horizontal:12*s,vertical:10*s),decoration:BoxDecoration(border:index==0?null:const Border(top:BorderSide(color:Color(0xFFF0EEF4)))),child:Row(children:[Container(width:34*s,height:34*s,decoration:BoxDecoration(color:(index%3==2?green:orange).withValues(alpha:.12),shape:BoxShape.circle),child:Icon(index%3==2?Icons.shopping_basket_rounded:Icons.restaurant_rounded,color:index%3==2?green:orange,size:17*s)),SizedBox(width:9*s),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text((r['title']??r['description']??'Teslimat').toString(),maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(color:navy,fontSize:10*s,fontWeight:FontWeight.w700)),Text(time(r['created_at']),style:TextStyle(color:muted,fontSize:8*s))])),Text(money(r['amount']),style:TextStyle(color:navy,fontSize:11*s,fontWeight:FontWeight.w900)),Icon(Icons.chevron_right_rounded,color:muted,size:18*s)]));
+  Widget _empty(double s)=>_card(child:Padding(padding:EdgeInsets.all(15*s),child:Center(child:Text('Henüz kazanç kaydı yok',style:TextStyle(color:muted,fontSize:10*s)))));
+  Widget _bank(double s)=>InkWell(onTap:_bankDialog,child:_card(child:Padding(padding:EdgeInsets.all(13*s),child:Row(children:[Container(width:35*s,height:35*s,decoration:BoxDecoration(color:purple.withValues(alpha:.1),shape:BoxShape.circle),child:Icon(Icons.account_balance_rounded,color:purple,size:18*s)),SizedBox(width:10*s),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('Ödeme Hesabı',style:TextStyle(color:navy,fontSize:10.5*s,fontWeight:FontWeight.w900)),Text(bank==null?'IBAN ekle':'${bank?['bank_name']??''} • ${bank?['iban_masked']??''}',style:TextStyle(color:muted,fontSize:8*s))])),Icon(Icons.chevron_right_rounded,color:muted,size:19*s)]))));
+  Widget _bottom(double s)=>Container(height:68*s,padding:EdgeInsets.only(top:6*s,bottom:8*s),decoration:const BoxDecoration(color:Colors.white,boxShadow:[BoxShadow(color:Color(0x10000000),blurRadius:15,offset:Offset(0,-3))]),child:Row(children:[_nav(Icons.layers_rounded,'Havuz',false,s),_nav(Icons.work_outline_rounded,'Atananlar',false,s),_nav(Icons.map_outlined,'Harita',false,s),_nav(Icons.bar_chart_rounded,'Kazançlar',true,s),_nav(Icons.person_outline_rounded,'Profil',false,s)]));
+  Widget _nav(IconData i,String t,bool active,double s)=>Expanded(child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(i,color:active?purple:const Color(0xFF7D8194),size:20*s),SizedBox(height:3*s),Text(t,style:TextStyle(color:active?purple:const Color(0xFF7D8194),fontSize:7.8*s,fontWeight:active?FontWeight.w800:FontWeight.w500))]));
 }
