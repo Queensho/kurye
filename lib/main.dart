@@ -213,17 +213,30 @@ class KuryeApp extends StatelessWidget {
           : 'Kurye',
       theme: theme,
       builder: (context, child) {
-        if (child == null || isCustomerPath || isAdminPath)
+        if (child == null || isCustomerPath || isAdminPath) {
           return child ?? const SizedBox.shrink();
+        }
+
+        // Kurye uygulamasının tamamında tek bir referans ölçüsü kullanıyoruz.
+        // Böylece ana sayfa, havuz, atanan işler, kazançlar, profil ve alt
+        // sayfalar farklı ekran genişliklerinde birbirinden farklı büyümüyor.
         final mq = MediaQuery.of(context);
-        final scale = (mq.size.width / 430).clamp(.84, 1.0);
-        return MediaQuery(
-          data: mq.copyWith(textScaler: TextScaler.linear(scale)),
+        final viewportWidth = mq.size.width > 390.0 ? 390.0 : mq.size.width;
+
+        return ColoredBox(
+          color: const Color(0xFFF7FBFF),
           child: Align(
             alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: child,
+            child: SizedBox(
+              width: viewportWidth,
+              height: mq.size.height,
+              child: MediaQuery(
+                data: mq.copyWith(
+                  size: Size(viewportWidth, mq.size.height),
+                  textScaler: TextScaler.noScaling,
+                ),
+                child: child,
+              ),
             ),
           ),
         );
