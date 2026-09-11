@@ -1,4 +1,4 @@
-name: Courier Flow Tests
+name: Delivery Flow Tests
 
 on:
   push:
@@ -25,11 +25,12 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@v4
-      - name: Run courier database regression tests when DB secret is configured
+      - name: Run courier and customer delivery regression tests
         shell: bash
         run: |
           if [ -z "$SUPABASE_DB_URL" ]; then
-            echo "SUPABASE_DB_URL is not configured; skipping remote DB regression test."
+            echo "SUPABASE_DB_URL is not configured; skipping remote DB regression tests."
             exit 0
           fi
           psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/courier_flow_regression.sql
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/customer_delivery_e2e.sql
