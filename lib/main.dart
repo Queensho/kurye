@@ -103,7 +103,7 @@ class KuryeApp extends StatelessWidget {
     } else if (isCourierProfilePath) {
       home = _courierGate(const FixedNotificationBellOverlay(audience: 'courier', child: CourierProfilePage()));
     } else {
-      home = _courierGate(const FixedNotificationBellOverlay(audience: 'courier', child: CourierHomePage()));
+      home = _courierGate(const FixedNotificationBellOverlay(audience: 'courier', embeddedCourierHome: true, child: CourierHomePage()));
     }
 
     final theme = isCustomerPath
