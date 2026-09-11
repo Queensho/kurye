@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
+import 'courier_route_map_page.dart';
 import 'data/app_data_service.dart';
 
 class CourierPoolJobDetailPage extends StatefulWidget {
@@ -46,6 +48,46 @@ class _CourierPoolJobDetailPageState extends State<CourierPoolJobDetailPage> {
       case 'gift': return 'Hediye';
       default: return 'Paket';
     }
+  }
+
+  double? _number(dynamic raw) {
+    if (raw is num) return raw.toDouble();
+    return double.tryParse((raw ?? '').toString().trim());
+  }
+
+  LatLng? _pickupPoint() {
+    final lat = _number(item['pickup_lat'] ?? item['pickup_latitude']);
+    final lng = _number(item['pickup_lng'] ?? item['pickup_longitude'] ?? item['pickup_lon']);
+    return lat != null && lng != null ? LatLng(lat, lng) : null;
+  }
+
+  LatLng? _dropoffPoint() {
+    final lat = _number(item['dropoff_lat'] ?? item['dropoff_latitude']);
+    final lng = _number(item['dropoff_lng'] ?? item['dropoff_longitude'] ?? item['dropoff_lon']);
+    return lat != null && lng != null ? LatLng(lat, lng) : null;
+  }
+
+  Future<void> _openRoute() async {
+    final pickup = _pickupPoint();
+    final dropoff = _dropoffPoint();
+    if (pickup == null || dropoff == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bu gönderinin harita koordinatları bulunamadı.')),
+      );
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CourierRouteMapPage(
+          title: 'Gönderi Rotası',
+          destinationLabel: 'Alım → Teslimat',
+          origin: pickup,
+          destination: dropoff,
+        ),
+      ),
+    );
   }
 
   Future<void> _claim() async {
@@ -187,6 +229,22 @@ class _CourierPoolJobDetailPageState extends State<CourierPoolJobDetailPage> {
       _addressRow(orange, 'Alım Adresi', _text('pickup_address')),
       Padding(padding: const EdgeInsets.only(left: 7), child: Align(alignment: Alignment.centerLeft, child: Container(width: 2, height: 24, color: const Color(0xFFE1DDEA)))),
       _addressRow(navy, 'Teslimat Adresi', _text('dropoff_address')),
+      const SizedBox(height: 14),
+      SizedBox(
+        width: double.infinity,
+        height: 44,
+        child: FilledButton.tonalIcon(
+          onPressed: _openRoute,
+          icon: const Icon(Icons.map_outlined, size: 20),
+          label: const Text('Rotayı Gör', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFF1EDFF),
+            foregroundColor: purple,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+      ),
     ]),
   );
 
