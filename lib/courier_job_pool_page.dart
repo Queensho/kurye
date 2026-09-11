@@ -278,11 +278,11 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
     final busy = claimingId == id;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(26),
         boxShadow: const [BoxShadow(color: Color(0x0E000000), blurRadius: 16, offset: Offset(0, 5))],
       ),
       child: Column(
@@ -290,13 +290,13 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const CircleAvatar(radius: 25, backgroundColor: Color(0xFFEAF4FF), child: Icon(Icons.description_outlined, color: blue)),
+              const CircleAvatar(radius: 28, backgroundColor: Color(0xFFEAF4FF), child: Icon(Icons.description_outlined, color: blue, size: 28)),
               const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(code, style: const TextStyle(color: navy, fontSize: 17, fontWeight: FontWeight.w900)),
+                    Text(code, style: const TextStyle(color: navy, fontSize: 18, fontWeight: FontWeight.w900)),
                     const SizedBox(height: 5),
                     _addressRow(blue, pickup),
                     const SizedBox(height: 5),
@@ -321,8 +321,8 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
           ),
           const SizedBox(height: 13),
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(color: const Color(0xFFF0F7FF), borderRadius: BorderRadius.circular(17)),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(color: const Color(0xFFF0F7FF), borderRadius: BorderRadius.circular(18)),
             child: Row(
               children: [
                 _metric(Icons.route_rounded, totalKm == null ? '—' : '${totalKm.toStringAsFixed(1)} km', 'Toplam'),
@@ -341,7 +341,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
                 : const Icon(Icons.bolt_rounded),
             label: Text(busy ? 'Alınıyor...' : 'İşi Al'),
             style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(50),
+              minimumSize: const Size.fromHeight(54),
               backgroundColor: blue,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
@@ -388,7 +388,7 @@ class _CourierJobPoolPageState extends State<CourierJobPoolPage> {
         children: [
           Icon(Icons.location_on_rounded, color: color, size: 15),
           const SizedBox(width: 5),
-          Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF5E7085), fontSize: 11))),
+          Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF5E7085), fontSize: 12))),
         ],
       );
 
