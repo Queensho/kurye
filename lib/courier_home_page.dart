@@ -314,7 +314,16 @@ class _CourierHomePageState extends State<CourierHomePage> {
     );
   }
 
-  Widget _offlineState(double s) => Center(child: Padding(padding: EdgeInsets.all(28*s), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.power_settings_new_rounded, color: muted, size: 42*s), SizedBox(height: 10*s), Text('İş havuzunu görmek için Online ol', style: TextStyle(color: navy, fontSize: 14*s, fontWeight: FontWeight.w900)), SizedBox(height: 5*s), Text('Online olduğunda açık gönderiler burada anında görünür.', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 10*s))])));
+  Widget _offlineState(double s) => LayoutBuilder(
+    builder: (context, constraints) => SizedBox.expand(
+      child: Image.asset(
+        'assets/images/Ofline.png',
+        fit: BoxFit.contain,
+        alignment: Alignment.bottomCenter,
+        filterQuality: FilterQuality.high,
+      ),
+    ),
+  );
 
   Widget _emptyPool(double s) => Center(child: Padding(padding: EdgeInsets.all(28*s), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.layers_outlined, color: muted, size: 42*s), SizedBox(height: 10*s), Text('Şu anda havuzda iş yok', style: TextStyle(color: navy, fontSize: 14*s, fontWeight: FontWeight.w900)), SizedBox(height: 5*s), Text('Yeni gönderi geldiğinde burada otomatik görünecek.', style: TextStyle(color: muted, fontSize: 10*s))])));
 
