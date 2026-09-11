@@ -12,6 +12,7 @@ class CourierAssignedJobsPage extends StatelessWidget {
 
   static const orange = Color(0xFFFF5A1F);
   static const navy = Color(0xFF171052);
+  static const purple = Color(0xFF2B1776);
   static const muted = Color(0xFF77758A);
   static const bg = Color(0xFFF7F7FA);
 

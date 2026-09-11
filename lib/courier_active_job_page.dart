@@ -298,7 +298,7 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
   );
 
   Widget _addressCard(String title,String address,Color color,{required VoidCallback onRoute})=>Container(
-    minHeight: 80,
+    constraints: const BoxConstraints(minHeight: 80),
     padding: const EdgeInsets.fromLTRB(13,11,10,11),
     decoration: BoxDecoration(color: Colors.white,borderRadius: BorderRadius.circular(20)),
     child: Row(children: [
