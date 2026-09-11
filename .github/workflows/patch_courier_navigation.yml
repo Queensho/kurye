@@ -12,13 +12,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
       - name: Patch courier navigation and sizing
         run: |
           python3 <<'PY'
           from pathlib import Path
           import re
 
-          # HOME
           p = Path('lib/courier_home_page.dart')
           s = p.read_text()
           s = s.replace("import 'courier_earnings_page.dart';\nimport 'courier_job_pool_page.dart';\nimport 'courier_profile_page.dart';", "import 'courier_assigned_jobs_page.dart';\nimport 'courier_bottom_nav.dart';\nimport 'courier_earnings_page.dart';\nimport 'courier_profile_page.dart';")
@@ -27,7 +30,6 @@ jobs:
           s = re.sub(r"  Widget _bottomNav\(double s\) => Container\(.*?\n  Widget _nav\(.*?\n\}", "  Widget _bottomNav(double s) => CourierBottomNav(currentIndex: 0, onTap: _navigateBottom);\n}", s, flags=re.S)
           p.write_text(s)
 
-          # EARNINGS
           p = Path('lib/courier_earnings_page.dart')
           s = p.read_text()
           if "courier_bottom_nav.dart" not in s:
@@ -36,7 +38,6 @@ jobs:
           s = re.sub(r"  Widget _bottom\(double s\)=>Container\(.*?\n  Widget _nav\(.*?\n\}", "  void _navigateBottom(int index) {\n    if (index == 2) return;\n    final page = switch (index) {\n      0 => const CourierHomePage(),\n      1 => const CourierAssignedJobsPage(),\n      3 => const CourierProfilePage(),\n      _ => const CourierEarningsPage(),\n    };\n    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => page));\n  }\n\n  Widget _bottom(double s)=>CourierBottomNav(currentIndex:2,onTap:_navigateBottom);\n}", s, flags=re.S)
           p.write_text(s)
 
-          # PROFILE
           p = Path('lib/courier_profile_page.dart')
           s = p.read_text()
           if "courier_bottom_nav.dart" not in s:
@@ -44,12 +45,12 @@ jobs:
           s = re.sub(r"  Widget _bottomNav\(double s\) => Container\(.*?\n  Widget _nav\(.*?\n\}\n\nclass CourierProfileEditPage", "  void _navigateBottom(int index) {\n    if (index == 3) return;\n    final page = switch (index) {\n      0 => const CourierHomePage(),\n      1 => const CourierAssignedJobsPage(),\n      2 => const CourierEarningsPage(),\n      _ => const CourierProfilePage(),\n    };\n    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => page));\n  }\n\n  Widget _bottomNav(double s) => CourierBottomNav(currentIndex: 3, onTap: _navigateBottom);\n}\n\nclass CourierProfileEditPage", s, flags=re.S)
           p.write_text(s)
 
-          # MAIN: direct /havuz to the unified courier home and add /atananlar.
           p = Path('lib/main.dart')
           s = p.read_text()
           if "courier_assigned_jobs_page.dart" not in s:
             s = s.replace("import 'courier_auth_gate.dart';", "import 'courier_assigned_jobs_page.dart';\nimport 'courier_auth_gate.dart';")
-          s = s.replace("  bool get isCourierProfilePath =>", "  bool get isAssignedPath => path.contains('/atananlar') || path.contains('/assigned');\n  bool get isCourierProfilePath =>")
+          if "bool get isAssignedPath" not in s:
+            s = s.replace("  bool get isCourierProfilePath =>", "  bool get isAssignedPath => path.contains('/atananlar') || path.contains('/assigned');\n  bool get isCourierProfilePath =>")
           s = s.replace("    } else if (isJobPoolPath) {\n      home = _courierGate(const FixedNotificationBellOverlay(audience: 'courier', child: CourierJobPoolPage()));\n    } else if (isCourierEarningsPath) {", "    } else if (isAssignedPath) {\n      home = _courierGate(const FixedNotificationBellOverlay(audience: 'courier', child: CourierAssignedJobsPage()));\n    } else if (isJobPoolPath) {\n      home = _courierGate(const FixedNotificationBellOverlay(audience: 'courier', embeddedCourierHome: true, child: CourierHomePage()));\n    } else if (isCourierEarningsPath) {")
           p.write_text(s)
           PY
