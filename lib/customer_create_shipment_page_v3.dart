@@ -32,6 +32,7 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
   String size = 'Orta';
   String? selectedCardId;
   List<Map<String, dynamic>> cards = [];
+  List<Map<String, dynamic>> savedAddresses = [];
   double? distanceKm;
   int? durationMin;
   int? quotedPrice;
@@ -44,6 +45,7 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
   void initState() {
     super.initState();
     _loadCards();
+    _loadAddresses();
   }
 
   Future<void> _loadCards() async {
@@ -59,6 +61,84 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
         }
       });
     } catch (_) {}
+  }
+
+  Future<void> _loadAddresses() async {
+    try {
+      final rows = await data.getAddresses();
+      if (!mounted) return;
+      setState(() => savedAddresses = rows);
+    } catch (_) {}
+  }
+
+  Future<void> _pickSavedAddress() async {
+    await _loadAddresses();
+    if (!mounted) return;
+    if (savedAddresses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kayıtlı adres bulunamadı. Profilinden adres ekleyebilirsin.')));
+      return;
+    }
+
+    final selected = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('Kayıtlı Adreslerim', style: TextStyle(color: navy, fontSize: 18, fontWeight: FontWeight.w900))),
+            for (final address in savedAddresses)
+              ListTile(
+                leading: Icon(address['is_default'] == true ? Icons.home_rounded : Icons.bookmark_rounded, color: orange),
+                title: Text((address['label'] ?? 'Adres').toString(), style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text((address['address_line'] ?? '').toString(), maxLines: 2, overflow: TextOverflow.ellipsis),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.pop(context, address),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+
+    final lat = (selected['latitude'] as num?)?.toDouble();
+    final lng = (selected['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bu kayıtlı adreste harita konumu yok. Adresi haritadan tekrar seç.')));
+      return;
+    }
+
+    final target = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bu adresi nerede kullanacaksın?'),
+        content: Text((selected['address_line'] ?? '').toString()),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Alım Adresi')),
+          FilledButton(onPressed: () => Navigator.pop(context, false), child: const Text('Teslimat Adresi')),
+        ],
+      ),
+    );
+    if (target == null || !mounted) return;
+
+    final value = AddressSelection(
+      displayName: (selected['address_line'] ?? selected['label'] ?? '').toString(),
+      lat: lat,
+      lng: lng,
+    );
+    setState(() {
+      if (target) {
+        pickup = value;
+      } else {
+        dropoff = value;
+      }
+      distanceKm = null;
+      durationMin = null;
+      quotedPrice = null;
+    });
+    if (pickup != null && dropoff != null) await _calculateRouteAndQuote();
   }
 
   Future<void> _pickAddress(bool isPickup) async {
@@ -303,7 +383,7 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
     );
   }
 
-  Widget _addressShortcuts(double s) => Row(children: [Expanded(child: _shortcut(Icons.add_circle_outline_rounded, 'Ara durak ekle', () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ara durak yakında.'))), s, true)), SizedBox(width: 9 * s), Expanded(child: _shortcut(Icons.bookmark_border_rounded, 'Adreslerimden seç', () => _pickAddress(true), s, false))]);
+  Widget _addressShortcuts(double s) => Row(children: [Expanded(child: _shortcut(Icons.add_circle_outline_rounded, 'Ara durak ekle', () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ara durak yakında.'))), s, true)), SizedBox(width: 9 * s), Expanded(child: _shortcut(Icons.bookmark_border_rounded, 'Adreslerimden seç', _pickSavedAddress, s, false))]);
 
   Widget _shortcut(IconData icon, String label, VoidCallback onTap, double s, bool tinted) => InkWell(onTap: onTap, borderRadius: BorderRadius.circular(14 * s), child: Container(height: 47 * s, alignment: Alignment.center, decoration: BoxDecoration(color: tinted ? const Color(0xFFF0ECFF) : Colors.white, borderRadius: BorderRadius.circular(14 * s)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, color: navy, size: 20 * s), SizedBox(width: 7 * s), Text(label, style: TextStyle(color: navy, fontSize: 11.5 * s, fontWeight: FontWeight.w700))])));
 
