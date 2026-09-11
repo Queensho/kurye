@@ -3,7 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'create_shipment_page_v2.dart';
 import 'customer_phone_auth_page.dart';
+import 'customer_support_tickets_page.dart';
 import 'data/app_data_service.dart';
+import 'data/customer_delivery_extensions.dart';
 import 'home_pixel_preview.dart';
 import 'my_shipments_page.dart';
 
@@ -80,15 +82,37 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
   Future<void> _addAddress() async {
     final label = TextEditingController();
     final address = TextEditingController();
+    final contactName = TextEditingController(text: (profile['full_name'] ?? '').toString());
+    final contactPhone = TextEditingController(text: (profile['phone'] ?? '').toString());
+    final building = TextEditingController();
+    final floor = TextEditingController();
+    final apartment = TextEditingController();
+    final doorNote = TextEditingController();
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Adres Ekle', style: TextStyle(color: navy, fontWeight: FontWeight.w900)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: label, decoration: const InputDecoration(labelText: 'Adres adı', hintText: 'Ev, İş...')),
-          const SizedBox(height: 10),
-          TextField(controller: address, maxLines: 3, decoration: const InputDecoration(labelText: 'Açık adres')),
-        ]),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: label, decoration: const InputDecoration(labelText: 'Adres adı', hintText: 'Ev, İş...')),
+            const SizedBox(height: 10),
+            TextField(controller: address, maxLines: 3, decoration: const InputDecoration(labelText: 'Açık adres')),
+            const SizedBox(height: 10),
+            TextField(controller: contactName, decoration: const InputDecoration(labelText: 'Kişi adı')),
+            const SizedBox(height: 10),
+            TextField(controller: contactPhone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Telefon')),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: TextField(controller: building, decoration: const InputDecoration(labelText: 'Bina / Blok'))),
+              const SizedBox(width: 8),
+              Expanded(child: TextField(controller: floor, decoration: const InputDecoration(labelText: 'Kat'))),
+              const SizedBox(width: 8),
+              Expanded(child: TextField(controller: apartment, decoration: const InputDecoration(labelText: 'Daire'))),
+            ]),
+            const SizedBox(height: 10),
+            TextField(controller: doorNote, maxLines: 2, decoration: const InputDecoration(labelText: 'Kapı / kurye notu')),
+          ]),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
           FilledButton(style: FilledButton.styleFrom(backgroundColor: orange), onPressed: () => Navigator.pop(context, true), child: const Text('Kaydet')),
@@ -96,7 +120,17 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       ),
     );
     if (saved != true || label.text.trim().isEmpty || address.text.trim().isEmpty) return;
-    await data.addAddress(label: label.text.trim(), addressLine: address.text.trim(), isDefault: addresses.isEmpty);
+    await data.saveDetailedAddress(
+      label: label.text.trim(),
+      addressLine: address.text.trim(),
+      contactName: contactName.text.trim(),
+      contactPhone: contactPhone.text.trim(),
+      buildingName: building.text.trim(),
+      floorNo: floor.text.trim(),
+      apartmentNo: apartment.text.trim(),
+      doorNote: doorNote.text.trim(),
+      isDefault: addresses.isEmpty,
+    );
     await _load();
   }
 
@@ -255,6 +289,8 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
     } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Şifre güncellenemedi: $e'))); }
   }
 
+  void _openSupportTickets() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerSupportTicketsPage()));
+
   void _openHelp() => _infoSheet('Yardım & Destek', const [
     ('Gönderim nasıl oluşturulur?', 'Ana sayfadaki Gönderi Oluştur alanından alım ve teslimat adresini seçerek ilerleyebilirsin.'),
     ('Kuryemi nasıl takip ederim?', 'Kurye işi aldıktan sonra Gönderilerim veya Takip alanından canlı konumu izleyebilirsin.'),
@@ -322,6 +358,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                   _MenuData(Icons.notifications_rounded, 'Bildirim Ayarları', 'Anlık bildirimleri yönet', _openNotificationSettings),
                   _MenuData(Icons.shield_rounded, 'Güvenlik', 'Şifre ve hesap güvenliği', _openSecurity),
                   _MenuData(Icons.help_rounded, 'Yardım & Destek', 'SSS ve destek', _openHelp),
+                  _MenuData(Icons.support_agent_rounded, 'Destek Taleplerim', 'Açık, inceleniyor ve çözülen kayıtlar', _openSupportTickets),
                   _MenuData(Icons.info_rounded, 'Hakkında', 'Uygulama sürümü, gizlilik', _openAbout),
                 ], s),
                 SizedBox(height: 10 * s), _logoutButton(s),

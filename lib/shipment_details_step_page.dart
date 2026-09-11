@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'address_picker_page.dart';
 import 'courier_search_page.dart';
 import 'data/app_data_service.dart';
+import 'data/customer_delivery_extensions.dart';
 
 class ShipmentDetailsStepPage extends StatefulWidget {
   const ShipmentDetailsStepPage({
@@ -20,6 +21,11 @@ class ShipmentDetailsStepPage extends StatefulWidget {
     required this.quotedPrice,
     required this.initialWeight,
     required this.initialSize,
+    this.prefillRecipientName,
+    this.prefillRecipientPhone,
+    this.prefillPickupDetail,
+    this.prefillDropoffDetail,
+    this.prefillDoorNote,
   });
 
   final AddressSelection pickup;
@@ -32,6 +38,11 @@ class ShipmentDetailsStepPage extends StatefulWidget {
   final int quotedPrice;
   final String initialWeight;
   final String initialSize;
+  final String? prefillRecipientName;
+  final String? prefillRecipientPhone;
+  final String? prefillPickupDetail;
+  final String? prefillDropoffDetail;
+  final String? prefillDoorNote;
 
   @override
   State<ShipmentDetailsStepPage> createState() => _ShipmentDetailsStepPageState();
@@ -46,6 +57,11 @@ class _ShipmentDetailsStepPageState extends State<ShipmentDetailsStepPage> {
 
   final _contentController = TextEditingController();
   final _noteController = TextEditingController();
+  final _recipientNameController = TextEditingController();
+  final _recipientPhoneController = TextEditingController();
+  final _pickupDetailController = TextEditingController();
+  final _dropoffDetailController = TextEditingController();
+  final _doorNoteController = TextEditingController();
   final _picker = ImagePicker();
 
   late String weight;
@@ -61,12 +77,22 @@ class _ShipmentDetailsStepPageState extends State<ShipmentDetailsStepPage> {
     super.initState();
     weight = widget.initialWeight;
     size = widget.initialSize;
+    _recipientNameController.text = widget.prefillRecipientName ?? '';
+    _recipientPhoneController.text = widget.prefillRecipientPhone ?? '';
+    _pickupDetailController.text = widget.prefillPickupDetail ?? '';
+    _dropoffDetailController.text = widget.prefillDropoffDetail ?? '';
+    _doorNoteController.text = widget.prefillDoorNote ?? '';
   }
 
   @override
   void dispose() {
     _contentController.dispose();
     _noteController.dispose();
+    _recipientNameController.dispose();
+    _recipientPhoneController.dispose();
+    _pickupDetailController.dispose();
+    _dropoffDetailController.dispose();
+    _doorNoteController.dispose();
     super.dispose();
   }
 
@@ -116,10 +142,16 @@ class _ShipmentDetailsStepPageState extends State<ShipmentDetailsStepPage> {
 
   Future<void> _createShipment() async {
     if (creating) return;
+    final recipientName = _recipientNameController.text.trim();
+    final recipientPhone = _recipientPhoneController.text.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (recipientName.length < 2 || recipientPhone.replaceAll(RegExp(r'\D'), '').length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alıcı adı ve geçerli telefon numarası zorunlu.')));
+      return;
+    }
     setState(() => creating = true);
     try {
       const packageTypes = ['package', 'document', 'market', 'gift'];
-      final created = await AppDataService.instance.createShipment(
+      final created = await AppDataService.instance.createShipmentWithRecipient(
         vehicleType: 'motorcycle',
         packageType: packageTypes[widget.packageIndex.clamp(0, 3)],
         pickupAddress: widget.pickup.displayName,
@@ -133,9 +165,13 @@ class _ShipmentDetailsStepPageState extends State<ShipmentDetailsStepPage> {
         note: _combinedNote().isEmpty ? null : _combinedNote(),
         distanceKm: widget.distanceKm,
         durationMin: widget.durationMin,
-        estimatedPrice: widget.quotedPrice,
         paymentType: widget.paymentIndex == 0 ? 'cash' : 'online',
         paymentMethodId: widget.paymentIndex == 1 ? widget.selectedCardId : null,
+        recipientName: recipientName,
+        recipientPhone: recipientPhone,
+        pickupDetail: _pickupDetailController.text.trim(),
+        dropoffDetail: _dropoffDetailController.text.trim(),
+        doorNote: _doorNoteController.text.trim(),
       );
       final id = created['id']?.toString();
       if (id == null || id.isEmpty) throw StateError('Gönderi kimliği alınamadı.');
@@ -276,6 +312,8 @@ class _ShipmentDetailsStepPageState extends State<ShipmentDetailsStepPage> {
       padding: EdgeInsets.fromLTRB(17 * s, 15 * s, 17 * s, 24 * s),
       child: Column(
         children: [
+          _recipientCard(s),
+          SizedBox(height: 10 * s),
           _packageDetailsCard(s),
           SizedBox(height: 10 * s),
           _photosCard(s),
@@ -291,6 +329,34 @@ class _ShipmentDetailsStepPageState extends State<ShipmentDetailsStepPage> {
           _continueButton('Devam Et', () => setState(() => confirmation = true), s),
         ],
       ),
+    );
+  }
+
+  Widget _recipientCard(double s) {
+    return Container(
+      padding: EdgeInsets.all(14 * s),
+      decoration: _cardDecoration(s),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          _iconBubble(Icons.person_pin_circle_outlined, s),
+          SizedBox(width: 10 * s),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Alıcı ve Adres Detayı', style: TextStyle(color: navy, fontSize: 14 * s, fontWeight: FontWeight.w900)),
+            SizedBox(height: 2 * s),
+            Text('Kurye teslimatta bu bilgileri kullanır.', style: TextStyle(color: muted, fontSize: 10.5 * s)),
+          ])),
+        ]),
+        SizedBox(height: 12 * s),
+        TextField(controller: _recipientNameController, decoration: const InputDecoration(labelText: 'Alıcı Ad Soyad', border: OutlineInputBorder())),
+        SizedBox(height: 9 * s),
+        TextField(controller: _recipientPhoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Alıcı Telefon', border: OutlineInputBorder())),
+        SizedBox(height: 9 * s),
+        TextField(controller: _pickupDetailController, decoration: const InputDecoration(labelText: 'Alım bina / kat / daire', border: OutlineInputBorder())),
+        SizedBox(height: 9 * s),
+        TextField(controller: _dropoffDetailController, decoration: const InputDecoration(labelText: 'Teslimat bina / kat / daire', border: OutlineInputBorder())),
+        SizedBox(height: 9 * s),
+        TextField(controller: _doorNoteController, maxLines: 2, decoration: const InputDecoration(labelText: 'Kapı / teslimat notu', border: OutlineInputBorder())),
+      ]),
     );
   }
 
@@ -441,6 +507,9 @@ class _ShipmentDetailsStepPageState extends State<ShipmentDetailsStepPage> {
             SizedBox(height: 14 * s),
             _summaryRow('Alım', widget.pickup.displayName, s),
             _summaryRow('Teslimat', widget.dropoff.displayName, s),
+            _summaryRow('Alıcı', '${_recipientNameController.text} • ${_recipientPhoneController.text}', s),
+            if (_dropoffDetailController.text.trim().isNotEmpty) _summaryRow('Adres Detayı', _dropoffDetailController.text.trim(), s),
+            if (_doorNoteController.text.trim().isNotEmpty) _summaryRow('Kapı Notu', _doorNoteController.text.trim(), s),
             _summaryRow('Paket', '$weight • $size', s),
             _summaryRow('Ödeme', widget.paymentIndex == 0 ? 'Nakit' : 'Kart', s),
           ]),

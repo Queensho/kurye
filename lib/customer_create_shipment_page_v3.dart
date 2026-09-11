@@ -33,6 +33,8 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
   String? selectedCardId;
   List<Map<String, dynamic>> cards = [];
   List<Map<String, dynamic>> savedAddresses = [];
+  Map<String, dynamic>? pickupSavedProfile;
+  Map<String, dynamic>? dropoffSavedProfile;
   double? distanceKm;
   int? durationMin;
   int? quotedPrice;
@@ -131,8 +133,10 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
     setState(() {
       if (target) {
         pickup = value;
+        pickupSavedProfile = selected;
       } else {
         dropoff = value;
+        dropoffSavedProfile = selected;
       }
       distanceKm = null;
       durationMin = null;
@@ -152,8 +156,10 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
     setState(() {
       if (isPickup) {
         pickup = result;
+        pickupSavedProfile = null;
       } else {
         dropoff = result;
+        dropoffSavedProfile = null;
       }
       distanceKm = null;
       durationMin = null;
@@ -261,6 +267,18 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
     if (id != null && mounted) setState(() => selectedCardId = id);
   }
 
+  String? _savedAddressDetail(Map<String, dynamic>? value) {
+    if (value == null) return null;
+    final parts = <String>[];
+    final building = (value['building_name'] ?? '').toString().trim();
+    final floor = (value['floor_no'] ?? '').toString().trim();
+    final apartment = (value['apartment_no'] ?? '').toString().trim();
+    if (building.isNotEmpty) parts.add(building);
+    if (floor.isNotEmpty) parts.add('Kat $floor');
+    if (apartment.isNotEmpty) parts.add('Daire $apartment');
+    return parts.isEmpty ? null : parts.join(' • ');
+  }
+
   Future<void> _continue() async {
     if (pickup == null) {
       await _pickAddress(true);
@@ -291,6 +309,11 @@ class _CreateShipmentPageState extends State<CreateShipmentPage> {
         quotedPrice: quotedPrice!,
         initialWeight: weight,
         initialSize: size,
+        prefillRecipientName: dropoffSavedProfile?['contact_name']?.toString(),
+        prefillRecipientPhone: dropoffSavedProfile?['contact_phone']?.toString(),
+        prefillPickupDetail: _savedAddressDetail(pickupSavedProfile),
+        prefillDropoffDetail: _savedAddressDetail(dropoffSavedProfile),
+        prefillDoorNote: dropoffSavedProfile?['door_note']?.toString(),
       ),
     ));
   }

@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'courier_search_page.dart';
+import 'customer_route_overlay.dart';
 import 'data/app_data_service.dart';
 import 'data/customer_delivery_extensions.dart';
 import 'shipment_chat_page.dart';
@@ -31,6 +32,19 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
   String? loadedCourierId;
   bool loadingCourier = false;
   bool actionBusy = false;
+  int? routeEtaMin;
+  double? routeDistanceKm;
+
+  void _updateRouteEta(int? eta, double? km) {
+    final sameEta = routeEtaMin == eta;
+    final sameKm = (routeDistanceKm == null && km == null) ||
+        (routeDistanceKm != null && km != null && (routeDistanceKm! - km).abs() < .05);
+    if (!mounted || (sameEta && sameKm)) return;
+    setState(() {
+      routeEtaMin = eta;
+      routeDistanceKm = km;
+    });
+  }
 
   String _label(String status) => switch (status) {
         'searching' => 'Kurye aranıyor',
@@ -411,6 +425,9 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
   }) {
     final pickupPoint = pickupLat != null && pickupLng != null ? LatLng(pickupLat, pickupLng) : null;
     final dropPoint = dropLat != null && dropLng != null ? LatLng(dropLat, dropLng) : null;
+    final routeTarget = status == 'delivered' || status == 'cancelled'
+        ? null
+        : (status == 'picked_up' || status == 'at_dropoff' ? dropPoint : pickupPoint);
     final code = (shipment['public_code'] ?? 'Gönderi').toString();
     final info = courierInfo ?? const <String, dynamic>{};
     final courierName = (info['full_name'] ?? 'Kurye').toString();
@@ -521,6 +538,11 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
                             urlTemplate: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
                             userAgentPackageName: 'com.queensho.kurye',
                           ),
+                          CustomerRouteOverlay(
+                            courierPoint: stale ? null : courierPoint,
+                            targetPoint: routeTarget,
+                            onEtaChanged: _updateRouteEta,
+                          ),
                           MarkerLayer(markers: [
                             if (pickupPoint != null)
                               Marker(point: pickupPoint, width: 42, height: 42, child: const CircleAvatar(backgroundColor: blue, child: Icon(Icons.inventory_2_rounded, color: Colors.white, size: 20))),
@@ -542,6 +564,20 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
                         ],
                       ),
                     ),
+                    if (courierPoint != null && routeEtaMin != null && routeTarget != null)
+                      Positioned(
+                        left: 14,
+                        top: 14,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 12)]),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.route_rounded, color: Color(0xFF6C5CE7), size: 18),
+                            const SizedBox(width: 7),
+                            Text('${routeEtaMin} dk${routeDistanceKm == null ? '' : ' • ${routeDistanceKm!.toStringAsFixed(1)} km'}', style: const TextStyle(color: navy, fontWeight: FontWeight.w900, fontSize: 12)),
+                          ]),
+                        ),
+                      ),
                     if (courierPoint != null)
                       Positioned(
                         right: 16,
