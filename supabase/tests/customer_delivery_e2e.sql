@@ -22,7 +22,12 @@ begin
   insert into public.profiles(id,full_name,phone,account_status)
   values
     (v_customer,'E2E Customer','05550000001','active'),
-    (v_courier,'E2E Courier','05550000002','active');
+    (v_courier,'E2E Courier','05550000002','active')
+  on conflict(id) do update set
+    full_name=excluded.full_name,
+    phone=excluded.phone,
+    account_status='active',
+    updated_at=now();
 
   insert into public.couriers(user_id,is_approved,is_online,vehicle_type,last_seen_at,plate_number)
   values(v_courier,true,true,'motorcycle',now(),'34 E2E 001');
