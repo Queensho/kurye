@@ -305,8 +305,12 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
                   colors: [Color(0xFF39217E), Color(0xFF201052)],
                 ),
               ),
+              clipBehavior: Clip.antiAlias,
               child: Stack(
                 children: [
+                  const Positioned.fill(
+                    child: CustomPaint(painter: _OrangeWavePainter()),
+                  ),
                   Positioned(
                     right: -4,
                     bottom: -12,
@@ -562,6 +566,52 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
       ),
     );
   }
+}
+
+class _OrangeWavePainter extends CustomPainter {
+  const _OrangeWavePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final shadow = Paint()
+      ..color = const Color(0x33FF5A1F)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 58
+      ..strokeCap = StrokeCap.round;
+
+    final wave = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xFFFF8A45), Color(0xFFFF5A1F)],
+      ).createShader(Offset.zero & size)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 38
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path()
+      ..moveTo(size.width * .62, -18)
+      ..cubicTo(
+        size.width * .56,
+        size.height * .20,
+        size.width * .72,
+        size.height * .32,
+        size.width * .86,
+        size.height * .44,
+      )
+      ..cubicTo(
+        size.width * 1.02,
+        size.height * .57,
+        size.width * 1.03,
+        size.height * .78,
+        size.width * .90,
+        size.height * 1.08,
+      );
+
+    canvas.drawPath(path, shadow);
+    canvas.drawPath(path, wave);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ActiveBadge extends StatelessWidget {
