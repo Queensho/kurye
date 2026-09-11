@@ -1,0 +1,134 @@
+name: Fix Courier Online Sync
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Patch courier online state handling
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/courier_job_pool_page.dart')
+          s = p.read_text()
+
+          s = s.replace(
+              "  bool statusLoading = true;\n  bool mapMode = false;",
+              "  bool statusLoading = true;\n  bool statusUpdating = false;\n  bool mapMode = false;"
+          )
+
+          old = '''  Future<void> _setOnline(bool value) async {
+    final previous = online;
+    setState(() {
+      online = value;
+      statusLoading = true;
+    });
+    try {
+      await AppDataService.instance.setCourierOnline(
+        online: value,
+        vehicleType: 'motorcycle',
+      );
+      if (!mounted) return;
+      setState(() {
+        statusLoading = false;
+        poolStream = AppDataService.instance.watchCourierPool();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        online = previous;
+        statusLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Durum güncellenemedi: $e')),
+      );
+    }
+  }
+'''
+
+          new = '''  Future<void> _setOnline(bool value) async {
+    if (statusUpdating || value == online) return;
+
+    final data = AppDataService.instance;
+    final previous = online;
+
+    // Optimistic UI: do not blank the pool while the backend update is running.
+    setState(() {
+      online = value;
+      statusUpdating = true;
+    });
+
+    try {
+      await data.setCourierOnline(
+        online: value,
+        vehicleType: 'motorcycle',
+      );
+
+      // Confirm the persisted value before considering the toggle complete.
+      // A short retry protects against a stale read immediately after the write.
+      bool? persisted;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        final row = await data.client
+            .from('couriers')
+            .select('is_online')
+            .eq('user_id', data.userId)
+            .maybeSingle();
+        persisted = row?['is_online'] == true;
+        if (persisted == value) break;
+        await Future<void>.delayed(Duration(milliseconds: 180 * (attempt + 1)));
+      }
+
+      if (persisted != value) {
+        throw StateError('Online durumu sunucuda doğrulanamadı.');
+      }
+
+      if (!mounted) return;
+      setState(() {
+        online = value;
+        statusUpdating = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        online = previous;
+        statusUpdating = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Durum güncellenemedi: ${e.toString().replaceFirst('Bad state: ', '')}')),
+      );
+    }
+  }
+'''
+
+          if old not in s:
+              raise SystemExit('Expected _setOnline block not found')
+          s = s.replace(old, new)
+
+          s = s.replace(
+              "onChanged: statusLoading ? null : _setOnline,",
+              "onChanged: (statusLoading || statusUpdating) ? null : _setOnline,"
+          )
+
+          p.write_text(s)
+          PY
+
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/courier_job_pool_page.dart
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix courier online state sync flicker"
+          git push origin main
