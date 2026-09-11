@@ -31,9 +31,11 @@ class _CourierRouteMapPageState extends State<CourierRouteMapPage> {
   static const navy = Color(0xFF171052);
   static const purple = Color(0xFF4025C7);
 
+  final MapController mapController = MapController();
   LatLng? origin;
   List<LatLng> route = const [];
   bool loading = true;
+  bool mapReady = false;
   String? error;
   double? distanceKm;
   double? durationMin;
@@ -85,6 +87,7 @@ class _CourierRouteMapPageState extends State<CourierRouteMapPage> {
         durationMin = (first['duration'] as num?)?.toDouble() == null ? null : (first['duration'] as num).toDouble() / 60;
         loading = false;
       });
+      _fitRoute();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -92,7 +95,25 @@ class _CourierRouteMapPageState extends State<CourierRouteMapPage> {
         error = 'Yol rotası alınamadı; iki nokta gösteriliyor.';
         loading = false;
       });
+      _fitRoute();
     }
+  }
+
+  void _fitRoute() {
+    if (!mapReady) return;
+    final points = route.length >= 2
+        ? route
+        : [if (origin != null) origin!, widget.destination];
+    if (points.length < 2) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !mapReady) return;
+      mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(points),
+          padding: const EdgeInsets.fromLTRB(42, 42, 42, 150),
+        ),
+      );
+    });
   }
 
   LatLng get _center {
@@ -123,7 +144,15 @@ class _CourierRouteMapPageState extends State<CourierRouteMapPage> {
           Expanded(
             child: Stack(children: [
               FlutterMap(
-                options: MapOptions(initialCenter: _center, initialZoom: 12.8),
+                mapController: mapController,
+                options: MapOptions(
+                  initialCenter: _center,
+                  initialZoom: 12.8,
+                  onMapReady: () {
+                    mapReady = true;
+                    _fitRoute();
+                  },
+                ),
                 children: [
                   TileLayer(
                     urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -132,8 +161,24 @@ class _CourierRouteMapPageState extends State<CourierRouteMapPage> {
                   ),
                   if (route.isNotEmpty) PolylineLayer(polylines: [Polyline(points: route, strokeWidth: 5, color: purple)]),
                   MarkerLayer(markers: [
-                    if (origin != null) Marker(point: origin!, width: 46, height: 46, child: Container(decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 10)]), child: const Icon(Icons.my_location_rounded, color: orange, size: 27))),
-                    Marker(point: widget.destination, width: 48, height: 48, child: Container(decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 10)]), child: const Icon(Icons.location_on_rounded, color: purple, size: 31))),
+                    if (origin != null) Marker(
+                      point: origin!,
+                      width: 48,
+                      height: 48,
+                      child: Container(
+                        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 10)]),
+                        child: const Icon(Icons.trip_origin_rounded, color: orange, size: 28),
+                      ),
+                    ),
+                    Marker(
+                      point: widget.destination,
+                      width: 48,
+                      height: 48,
+                      child: Container(
+                        decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 10)]),
+                        child: const Icon(Icons.location_on_rounded, color: purple, size: 31),
+                      ),
+                    ),
                   ]),
                 ],
               ),
