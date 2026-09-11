@@ -8,10 +8,20 @@ class FixedNotificationBellOverlay extends StatelessWidget {
     super.key,
     required this.child,
     required this.audience,
+    this.embeddedCourierHome = false,
   });
 
   final Widget child;
   final String audience;
+  final bool embeddedCourierHome;
+
+  void _openNotifications(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AnnouncementCenterPage(audience: audience),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,20 +30,28 @@ class FixedNotificationBellOverlay extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(child: child),
-        Positioned(
-          top: MediaQuery.paddingOf(context).top + 12,
-          right: 14,
-          child: _NotificationBell(
-            audience: audience,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => AnnouncementCenterPage(audience: audience),
-                ),
-              );
-            },
+        if (embeddedCourierHome)
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 10,
+            right: 122,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _openNotifications(context),
+                borderRadius: BorderRadius.circular(12),
+                child: const SizedBox(width: 44, height: 44),
+              ),
+            ),
+          )
+        else
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 12,
+            right: 14,
+            child: _NotificationBell(
+              audience: audience,
+              onTap: () => _openNotifications(context),
+            ),
           ),
-        ),
       ],
     );
   }
