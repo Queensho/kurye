@@ -251,7 +251,7 @@ class _CourierHomePageState extends State<CourierHomePage> {
   );
 
   Widget _topTab(IconData icon, String label, bool active, int badge, double s, VoidCallback onTap) => Expanded(child: InkWell(onTap: onTap, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-    Stack(clipBehavior: Clip.none, children: [Icon(icon, color: active ? orange : navy.withValues(alpha: .68), size: 21*s), if (badge > 0) Positioned(right: -9*s, top: -6*s, child: Container(minWidth: 15*s, height: 15*s, padding: EdgeInsets.symmetric(horizontal: 3*s), alignment: Alignment.center, decoration: const BoxDecoration(color: orange, shape: BoxShape.circle), child: Text('$badge', style: TextStyle(color: Colors.white, fontSize: 7*s, fontWeight: FontWeight.w900))))]),
+    Stack(clipBehavior: Clip.none, children: [Icon(icon, color: active ? orange : navy.withValues(alpha: .68), size: 21*s), if (badge > 0) Positioned(right: -9*s, top: -6*s, child: Container(constraints: BoxConstraints(minWidth: 15*s), height: 15*s, padding: EdgeInsets.symmetric(horizontal: 3*s), alignment: Alignment.center, decoration: BoxDecoration(color: orange, borderRadius: BorderRadius.circular(8*s)), child: Text('$badge', style: TextStyle(color: Colors.white, fontSize: 7*s, fontWeight: FontWeight.w900))))]),
     SizedBox(height: 3*s),
     Text(label, style: TextStyle(color: active ? orange : muted, fontSize: 8.5*s, fontWeight: active ? FontWeight.w900 : FontWeight.w600)),
     SizedBox(height: 5*s),
