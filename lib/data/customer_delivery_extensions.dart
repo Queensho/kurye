@@ -64,6 +64,28 @@ extension CustomerDeliveryActions on AppDataService {
     return Map<String, dynamic>.from(value as Map);
   }
 
+  Future<Map<String, dynamic>> updateCustomerShipmentDetails({
+    required String shipmentId,
+    required String recipientName,
+    required String recipientPhone,
+    String? pickupDetail,
+    String? dropoffDetail,
+    String? doorNote,
+  }) async {
+    final value = await client.rpc(
+      'update_customer_shipment_details',
+      params: {
+        'p_shipment_id': shipmentId,
+        'p_recipient_name': recipientName,
+        'p_recipient_phone': recipientPhone,
+        'p_pickup_detail': pickupDetail,
+        'p_dropoff_detail': dropoffDetail,
+        'p_door_note': doorNote,
+      },
+    );
+    return Map<String, dynamic>.from(value as Map);
+  }
+
   Future<Map<String, dynamic>> createShipmentWithRecipient({
     required String vehicleType,
     required String packageType,
