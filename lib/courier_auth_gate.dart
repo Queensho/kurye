@@ -19,6 +19,7 @@ class _CourierAuthGateState extends State<CourierAuthGate>
     with WidgetsBindingObserver {
   final data = AppDataService.instance;
   StreamSubscription? authSub;
+  StreamSubscription<Map<String, dynamic>>? courierSub;
   Timer? heartbeatTimer;
   bool checking = true;
   bool allowed = false;
@@ -39,6 +40,7 @@ class _CourierAuthGateState extends State<CourierAuthGate>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     heartbeatTimer?.cancel();
+    courierSub?.cancel();
     authSub?.cancel();
     super.dispose();
   }
@@ -49,6 +51,23 @@ class _CourierAuthGateState extends State<CourierAuthGate>
       _startPresence();
       _refreshActiveShipment();
     }
+  }
+
+  void _watchCourierState() {
+    courierSub?.cancel();
+    if (!data.isSignedIn || !allowed) return;
+    courierSub = data.watchCourierLocation(data.userId).listen((row) {
+      if (!mounted || row.isEmpty) return;
+      final nextOnline = row['is_online'] == true;
+      if (nextOnline == courierOnline) return;
+      courierOnline = nextOnline;
+      if (nextOnline) {
+        unawaited(_startPresence());
+      } else {
+        heartbeatTimer?.cancel();
+      }
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _startPresence() async {
@@ -102,6 +121,8 @@ class _CourierAuthGateState extends State<CourierAuthGate>
 
     if (!data.isSignedIn) {
       heartbeatTimer?.cancel();
+      await courierSub?.cancel();
+      courierSub = null;
       courierOnline = false;
       activeShipment = null;
       if (!mounted) return;
@@ -118,6 +139,8 @@ class _CourierAuthGateState extends State<CourierAuthGate>
 
       if (value == null) {
         heartbeatTimer?.cancel();
+        await courierSub?.cancel();
+        courierSub = null;
         await data.signOut();
         if (!mounted) return;
         setState(() {
@@ -132,6 +155,8 @@ class _CourierAuthGateState extends State<CourierAuthGate>
 
       if (courier['account_status'] == 'suspended') {
         heartbeatTimer?.cancel();
+        await courierSub?.cancel();
+        courierSub = null;
         await data.signOut();
         if (!mounted) return;
         setState(() {
@@ -144,6 +169,8 @@ class _CourierAuthGateState extends State<CourierAuthGate>
 
       if (courier['is_approved'] != true) {
         heartbeatTimer?.cancel();
+        await courierSub?.cancel();
+        courierSub = null;
         courierOnline = false;
         setState(() {
           checking = false;
@@ -166,6 +193,7 @@ class _CourierAuthGateState extends State<CourierAuthGate>
             : Map<String, dynamic>.from(active as Map);
       });
 
+      _watchCourierState();
       if (courierOnline) {
         unawaited(_startPresence());
       } else {
@@ -173,6 +201,8 @@ class _CourierAuthGateState extends State<CourierAuthGate>
       }
     } catch (e) {
       heartbeatTimer?.cancel();
+      await courierSub?.cancel();
+      courierSub = null;
       if (!mounted) return;
       setState(() {
         checking = false;
@@ -184,6 +214,8 @@ class _CourierAuthGateState extends State<CourierAuthGate>
 
   Future<void> _logout() async {
     heartbeatTimer?.cancel();
+    await courierSub?.cancel();
+    courierSub = null;
     try {
       if (data.isSignedIn && courierOnline) {
         await data.setCourierOnline(online: false);
