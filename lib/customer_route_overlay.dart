@@ -96,7 +96,7 @@ class _CustomerRouteOverlayState extends State<CustomerRouteOverlay> {
     } catch (_) {
       final meters = const Distance().as(LengthUnit.Meter, courier, target);
       final fallbackKm = meters / 1000;
-      final fallbackEta = ((fallbackKm / 25) * 60).ceil().clamp(1, 999);
+      final fallbackEta = ((fallbackKm / 25) * 60).ceil().clamp(1, 999).toInt();
       if (mounted) setState(() => points = [courier, target]);
       widget.onEtaChanged(fallbackEta, fallbackKm);
     } finally {
