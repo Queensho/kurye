@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'courier_assigned_jobs_page.dart';
 import 'courier_bottom_nav.dart';
+import 'courier_earnings_detail_page.dart';
 import 'courier_home_page.dart';
 import 'courier_profile_page.dart';
 import 'data/app_data_service.dart';
@@ -683,12 +684,23 @@ class _CourierEarningsPageState extends State<CourierEarningsPage> {
               ),
             ),
           ),
-          Text(
-            'Tümü',
-            style: TextStyle(
-              color: purple,
-              fontSize: 10 * s,
-              fontWeight: FontWeight.w800,
+          InkWell(
+            borderRadius: BorderRadius.circular(12 * s),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const CourierEarningsDetailPage(),
+              ),
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6 * s, vertical: 5 * s),
+              child: Text(
+                'Tümü',
+                style: TextStyle(
+                  color: purple,
+                  fontSize: 10 * s,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ),
         ],
