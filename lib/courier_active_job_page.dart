@@ -312,10 +312,10 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
                     child: CustomPaint(painter: _OrangeWavePainter()),
                   ),
                   Positioned(
-                    right: -4,
-                    bottom: -12,
-                    width: 142,
-                    height: 142,
+                    right: 2,
+                    bottom: 4,
+                    width: 136,
+                    height: 136,
                     child: Image.asset(
                       'assets/images/Koli.png',
                       fit: BoxFit.contain,
@@ -576,7 +576,7 @@ class _OrangeWavePainter extends CustomPainter {
     final shadow = Paint()
       ..color = const Color(0x33FF5A1F)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 58
+      ..strokeWidth = 44
       ..strokeCap = StrokeCap.round;
 
     final wave = Paint()
@@ -584,26 +584,26 @@ class _OrangeWavePainter extends CustomPainter {
         colors: [Color(0xFFFF8A45), Color(0xFFFF5A1F)],
       ).createShader(Offset.zero & size)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 38
+      ..strokeWidth = 30
       ..strokeCap = StrokeCap.round;
 
     final path = Path()
-      ..moveTo(size.width * .62, -18)
+      ..moveTo(size.width * .64, size.height * .08)
       ..cubicTo(
-        size.width * .56,
-        size.height * .20,
-        size.width * .72,
+        size.width * .58,
+        size.height * .21,
+        size.width * .70,
         size.height * .32,
-        size.width * .86,
-        size.height * .44,
+        size.width * .84,
+        size.height * .43,
       )
       ..cubicTo(
-        size.width * 1.02,
-        size.height * .57,
-        size.width * 1.03,
-        size.height * .78,
-        size.width * .90,
-        size.height * 1.08,
+        size.width * .96,
+        size.height * .53,
+        size.width * .97,
+        size.height * .70,
+        size.width * .87,
+        size.height * .88,
       );
 
     canvas.drawPath(path, shadow);
