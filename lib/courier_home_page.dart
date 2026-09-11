@@ -5,6 +5,7 @@ import 'courier_assigned_jobs_page.dart';
 import 'courier_bottom_nav.dart';
 import 'courier_earnings_page.dart';
 import 'courier_profile_page.dart';
+import 'courier_pool_job_detail_page.dart';
 import 'data/app_data_service.dart';
 
 class CourierHomePage extends StatefulWidget {
@@ -258,7 +259,18 @@ class _CourierHomePageState extends State<CourierHomePage> {
                         itemCount: jobs.length,
                         itemBuilder: (_, i) => Padding(
                           padding: EdgeInsets.only(bottom: 8 * s),
-                          child: _jobCard(jobs[i], i, s),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () async {
+                              final claimed = await Navigator.of(context).push<bool>(
+                                MaterialPageRoute(
+                                  builder: (_) => CourierPoolJobDetailPage(shipment: jobs[i]),
+                                ),
+                              );
+                              if (claimed == true) await _loadDashboard();
+                            },
+                            child: _jobCard(jobs[i], i, s),
+                          ),
                         ),
                       );
                     },
