@@ -33,12 +33,33 @@ jobs:
           git checkout HEAD -- lib/main.dart pubspec.yaml assets/images/.gitkeep
           flutter pub get
 
+      - name: Apply courier offline artwork patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('lib/courier_home_page.dart')
+          s=p.read_text()
+          old="""  Widget _offlineState(double s) => Center(child: Padding(padding: EdgeInsets.all(28*s), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.power_settings_new_rounded, color: muted, size: 42*s), SizedBox(height: 10*s), Text('İş havuzunu görmek için Online ol', style: TextStyle(color: navy, fontSize: 14*s, fontWeight: FontWeight.w900)), SizedBox(height: 5*s), Text('Online olduğunda açık gönderiler burada anında görünür.', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 10*s))])));"""
+          new="""  Widget _offlineState(double s) => LayoutBuilder(
+    builder: (context, constraints) => SizedBox.expand(
+      child: Image.asset(
+        'assets/images/Ofline.png',
+        fit: BoxFit.contain,
+        alignment: Alignment.bottomCenter,
+        filterQuality: FilterQuality.high,
+      ),
+    ),
+  );"""
+          if old in s:
+              p.write_text(s.replace(old,new))
+          PY
+
       - name: Commit generated project files
         run: |
           if [ -n "$(git status --porcelain)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add .
-            git commit -m "[bootstrap] Flutter Android proje iskeletini oluştur"
+            git commit -m "[bootstrap] Use courier offline artwork"
             git push
           fi
