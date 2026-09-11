@@ -1,0 +1,105 @@
+name: Patch Android Background Location
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch_android_background_location.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch AppDataService background location
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/data/app_data_service.dart')
+          s = p.read_text()
+          s = s.replace("import 'package:geolocator/geolocator.dart';\n", "import 'package:flutter/foundation.dart';\nimport 'package:geolocator/geolocator.dart';\n")
+          old = '''  Future<void> startCourierLocationTracking() async {
+    if (_courierPositionSubscription != null) return;
+    if (!await Geolocator.isLocationServiceEnabled()) return;
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+    try {
+      final first = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+      await updateCourierLocation(first.latitude, first.longitude);
+    } catch (_) {}
+    _courierPositionSubscription = Geolocator.getPositionStream(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 15)).listen((position) async {
+      try { await updateCourierLocation(position.latitude, position.longitude); } catch (_) {}
+    });
+  }
+'''
+          new = '''  Future<void> startCourierLocationTracking() async {
+    if (_courierPositionSubscription != null || !isSignedIn) return;
+    if (!await Geolocator.isLocationServiceEnabled()) return;
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return;
+    }
+
+    final LocationSettings settings;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      settings = const AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 15,
+        intervalDuration: Duration(seconds: 15),
+        foregroundNotificationConfig: ForegroundNotificationConfig(
+          notificationTitle: 'Kurye konumu aktif',
+          notificationText: 'Online olduğun sürece teslimatlar için konumun güncelleniyor.',
+          notificationChannelName: 'Kurye konum takibi',
+          enableWakeLock: true,
+          setOngoing: true,
+        ),
+      );
+    } else {
+      settings = const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 15,
+      );
+    }
+
+    try {
+      final first = await Geolocator.getCurrentPosition(
+        locationSettings: settings,
+      );
+      await updateCourierLocation(first.latitude, first.longitude);
+    } catch (_) {}
+
+    _courierPositionSubscription = Geolocator.getPositionStream(
+      locationSettings: settings,
+    ).listen(
+      (position) async {
+        try {
+          await updateCourierLocation(position.latitude, position.longitude);
+        } catch (_) {}
+      },
+      onError: (_) async {
+        await stopCourierLocationTracking();
+      },
+    );
+  }
+'''
+          if old not in s:
+              raise SystemExit('target block not found')
+          p.write_text(s.replace(old, new))
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/data/app_data_service.dart
+          git commit -m "Enable Android foreground courier location tracking"
+          git push origin main
