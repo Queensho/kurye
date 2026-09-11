@@ -56,6 +56,14 @@ extension CustomerDeliveryActions on AppDataService {
     return Map<String, dynamic>.from(rows.first as Map);
   }
 
+  Future<Map<String, dynamic>> repeatCustomerShipment(String shipmentId) async {
+    final value = await client.rpc(
+      'repeat_customer_shipment',
+      params: {'p_shipment_id': shipmentId},
+    );
+    return Map<String, dynamic>.from(value as Map);
+  }
+
   Future<Map<String, dynamic>> createShipmentWithRecipient({
     required String vehicleType,
     required String packageType,
