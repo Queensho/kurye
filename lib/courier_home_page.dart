@@ -325,7 +325,16 @@ class _CourierHomePageState extends State<CourierHomePage> {
     ),
   );
 
-  Widget _emptyPool(double s) => Center(child: Padding(padding: EdgeInsets.all(28*s), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.layers_outlined, color: muted, size: 42*s), SizedBox(height: 10*s), Text('Şu anda havuzda iş yok', style: TextStyle(color: navy, fontSize: 14*s, fontWeight: FontWeight.w900)), SizedBox(height: 5*s), Text('Yeni gönderi geldiğinde burada otomatik görünecek.', style: TextStyle(color: muted, fontSize: 10*s))])));
+  Widget _emptyPool(double s) => LayoutBuilder(
+    builder: (context, constraints) => SizedBox.expand(
+      child: Image.asset(
+        'assets/images/Bos.png',
+        fit: BoxFit.contain,
+        alignment: Alignment.bottomCenter,
+        filterQuality: FilterQuality.high,
+      ),
+    ),
+  );
 
   Widget _bottomNav(double s) => Container(
     height: 68*s,
