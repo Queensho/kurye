@@ -1,0 +1,124 @@
+name: Patch Admin Login Recovery
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/patch_admin_login.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch admin login
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('lib/admin_page.dart')
+          s=p.read_text()
+          old="""  Future<void> _login() async {
+    final mail = email.text.trim();
+    if (mail.isEmpty || password.text.isEmpty) {
+      setState(() => error = 'E-posta ve şifreyi gir.');
+      return;
+    }
+    setState(() { loading = true; error = null; });
+    try {
+      await data.client.auth.signInWithPassword(
+        email: mail,
+        password: password.text,
+      );
+      await _check();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          loading = false;
+          error = 'Giriş yapılamadı: E-posta veya şifre hatalı.';
+        });
+      }
+    }
+  }
+"""
+          new="""  Future<void> _login() async {
+    final mail = email.text.trim().toLowerCase();
+    if (mail.isEmpty || password.text.isEmpty) {
+      setState(() => error = 'E-posta ve şifreyi gir.');
+      return;
+    }
+    setState(() { loading = true; error = null; });
+    try {
+      final current = data.client.auth.currentUser;
+      if (current != null && (current.email ?? '').toLowerCase() != mail) {
+        await data.client.auth.signOut();
+      }
+      await data.client.auth.signInWithPassword(email: mail, password: password.text);
+      final row = await data.client.from('admin_users').select('role').eq('user_id', data.userId).maybeSingle();
+      if (row == null) {
+        await data.client.auth.signOut();
+        if (mounted) setState(() { loading = false; authorized = false; error = 'Bu hesap admin yetkisine sahip değil.'; });
+        return;
+      }
+      await _check();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          loading = false;
+          error = 'Giriş yapılamadı. Şifreni kontrol et veya aşağıdan sıfırla.';
+        });
+      }
+    }
+  }
+
+  Future<void> _resetAdminPassword() async {
+    final mail = email.text.trim().toLowerCase();
+    if (mail.isEmpty) {
+      setState(() => error = 'Önce admin e-posta adresini gir.');
+      return;
+    }
+    try {
+      await data.client.auth.resetPasswordForEmail(mail);
+      if (!mounted) return;
+      setState(() => error = null);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Şifre sıfırlama bağlantısı e-posta adresine gönderildi.')));
+    } catch (_) {
+      if (mounted) setState(() => error = 'Şifre sıfırlama bağlantısı gönderilemedi.');
+    }
+  }
+"""
+          if old not in s:
+            raise SystemExit('login block not found')
+          s=s.replace(old,new)
+          old2="""                    SizedBox(
+                      height: 56,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: blue,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                        ),
+                        onPressed: _login,
+                        child: const Text('Giriş Yap', style: TextStyle(fontWeight: FontWeight.w900)),
+                      ),
+                    ),
+"""
+          new2=old2+"""                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _resetAdminPassword,
+                      child: const Text('Şifremi unuttum / sıfırla', style: TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+"""
+          if old2 not in s:
+            raise SystemExit('button block not found')
+          s=s.replace(old2,new2)
+          p.write_text(s)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/admin_page.dart
+          if ! git diff --cached --quiet; then
+            git commit -m "Fix admin login and add password recovery"
+            git push
+          fi
