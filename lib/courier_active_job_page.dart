@@ -308,33 +308,15 @@ class _CourierActiveJobPageState extends State<CourierActiveJobPage> {
               child: Stack(
                 children: [
                   Positioned(
-                    right: -6,
-                    bottom: -3,
-                    child: Transform.rotate(
-                      angle: -.06,
-                      child: Container(
-                        width: 105,
-                        height: 86,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFB269),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: const [BoxShadow(color: Color(0x44000000), blurRadius: 12, offset: Offset(0, 6))],
-                        ),
-                        child: Center(
-                          child: Text(
-                            code.startsWith('#') ? code : '#$code',
-                            style: const TextStyle(color: navy, fontSize: 11, fontWeight: FontWeight.w900),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 63,
-                    top: -3,
-                    child: Transform.rotate(
-                      angle: .12,
-                      child: const Icon(Icons.location_on_rounded, color: orange, size: 56),
+                    right: -4,
+                    bottom: -12,
+                    width: 142,
+                    height: 142,
+                    child: Image.asset(
+                      'assets/images/Koli.png',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.bottomRight,
+                      filterQuality: FilterQuality.high,
                     ),
                   ),
                   const Positioned(
