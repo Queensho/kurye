@@ -1,0 +1,44 @@
+name: Patch Active Job Hero Artwork
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Keep box and orange wave fully inside hero card
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/courier_active_job_page.dart')
+          s = p.read_text()
+          old = """                  Positioned(\n                    right: -4,\n                    bottom: -12,\n                    width: 142,\n                    height: 142,\n"""
+          new = """                  Positioned(\n                    right: 2,\n                    bottom: 4,\n                    width: 136,\n                    height: 136,\n"""
+          if old not in s:
+              raise SystemExit('Koli position pattern not found')
+          s = s.replace(old, new, 1)
+          s = s.replace("..strokeWidth = 58", "..strokeWidth = 44", 1)
+          s = s.replace("..strokeWidth = 38", "..strokeWidth = 30", 1)
+          old_path = """    final path = Path()\n      ..moveTo(size.width * .62, -18)\n      ..cubicTo(\n        size.width * .56,\n        size.height * .20,\n        size.width * .72,\n        size.height * .32,\n        size.width * .86,\n        size.height * .44,\n      )\n      ..cubicTo(\n        size.width * 1.02,\n        size.height * .57,\n        size.width * 1.03,\n        size.height * .78,\n        size.width * .90,\n        size.height * 1.08,\n      );\n"""
+          new_path = """    final path = Path()\n      ..moveTo(size.width * .64, size.height * .08)\n      ..cubicTo(\n        size.width * .58,\n        size.height * .21,\n        size.width * .70,\n        size.height * .32,\n        size.width * .84,\n        size.height * .43,\n      )\n      ..cubicTo(\n        size.width * .96,\n        size.height * .53,\n        size.width * .97,\n        size.height * .70,\n        size.width * .87,\n        size.height * .88,\n      );\n"""
+          if old_path not in s:
+              raise SystemExit('Wave path pattern not found')
+          s = s.replace(old_path, new_path, 1)
+          p.write_text(s)
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add lib/courier_active_job_page.dart
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix clipped active job hero artwork"
+          git push
