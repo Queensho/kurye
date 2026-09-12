@@ -47,46 +47,6 @@ jobs:
           p = Path('lib/customer_live_tracking_page.dart')
           s = p.read_text()
           s = s.replace('Icons.stacked_coins_rounded', 'Icons.payments_rounded')
-          replacements = {
-              'height: 178,': 'height: 138,',
-              'left: 22,\n            top: 46,': 'left: 18,\n            top: 30,',
-              'width: 54,\n                height: 54,': 'width: 48,\n                height: 48,',
-              'size: 26),': 'size: 23),',
-              'left: 92,\n            top: 42,\n            right: 210,': 'left: 78,\n            top: 29,\n            right: 142,',
-              'fontSize: 31,': 'fontSize: 24,',
-              'const SizedBox(height: 8),\n              Text(_statusSubtitle(status), style: TextStyle(color: Colors.white.withValues(alpha: .88), fontSize: 18,': 'const SizedBox(height: 5),\n              Text(_statusSubtitle(status), style: TextStyle(color: Colors.white.withValues(alpha: .88), fontSize: 14,',
-              'right: 16,\n            bottom: -2,\n            width: 185,\n            height: 164,': 'right: 12,\n            bottom: -2,\n            width: 148,\n            height: 128,',
-              'right: 14,\n            top: 52,': 'right: 10,\n            top: 34,',
-              'padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),': 'padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),',
-              'borderRadius: BorderRadius.circular(18)': 'borderRadius: BorderRadius.circular(15)',
-              "fontSize: 13, height: 1.35": "fontSize: 11.5, height: 1.25",
-              'height: 500,': 'height: 330,',
-              'Radius.circular(34)': 'Radius.circular(26)',
-              'width: 128,\n                        height: 128,': 'width: 94,\n                        height: 94,',
-              'padding: const EdgeInsets.all(18),': 'padding: const EdgeInsets.all(13),',
-              'padding: const EdgeInsets.all(10),': 'padding: const EdgeInsets.all(7),',
-              'top: 128,': 'top: 86,',
-              'padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),': 'padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),',
-              'right: 18,\n              top: 34,': 'right: 14,\n              top: 24,',
-              'const SizedBox(height: 12),\n                  _mapButton': 'const SizedBox(height: 9),\n                  _mapButton',
-              'bottom: 24,': 'bottom: 18,',
-              'SizedBox(width: 58, height: 58, child: Icon(icon, color: orange, size: 28))': 'SizedBox(width: 48, height: 48, child: Icon(icon, color: orange, size: 24))',
-              'offset: const Offset(0, -18),': 'offset: const Offset(0, -12),',
-              'padding: const EdgeInsets.fromLTRB(28, 16, 28, 34),': 'padding: const EdgeInsets.fromLTRB(22, 14, 22, 28),',
-              'const SizedBox(height: 20),': 'const SizedBox(height: 16),',
-              'radius: 37,': 'radius: 32,',
-              "width: 74, height: 74": "width: 64, height: 64",
-              'const SizedBox(width: 15),': 'const SizedBox(width: 12),',
-              'fontSize: 22,': 'fontSize: 19,',
-              'fontSize: 14.5,': 'fontSize: 13,',
-              'fontSize: 13.5,': 'fontSize: 12.5,',
-              'const SizedBox(height: 25),': 'const SizedBox(height: 20),',
-              'height: 62,': 'height: 56,',
-              'borderRadius: BorderRadius.circular(31)': 'borderRadius: BorderRadius.circular(28)',
-              'fontSize: 18, fontWeight: FontWeight.w900': 'fontSize: 16, fontWeight: FontWeight.w900',
-          }
-          for old, new in replacements.items():
-              s = s.replace(old, new)
           p.write_text(s)
           PY
       - name: Commit fixes
@@ -98,5 +58,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add lib/courier_assigned_jobs_page.dart lib/courier_active_job_page.dart lib/data/app_data_service.dart lib/customer_support_tickets_page.dart lib/customer_live_tracking_page.dart
-          git commit -m "Compact customer live tracking layout"
+          git commit -m "Fix web build blockers"
           git push
