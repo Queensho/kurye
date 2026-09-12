@@ -14,10 +14,10 @@ class CourierAuthPage extends StatefulWidget {
 }
 
 class _CourierAuthPageState extends State<CourierAuthPage> {
-  static const blue = Color(0xFF168CF5);
-  static const navy = Color(0xFF10213E);
-  static const muted = Color(0xFF74839A);
-  static const bg = Color(0xFFF4F8FC);
+  static const orange = Color(0xFFFF5A1F);
+  static const navy = Color(0xFF10152B);
+  static const muted = Color(0xFF7B8191);
+  static const bg = Color(0xFFFFFBF8);
 
   final data = AppDataService.instance;
   final email = TextEditingController();
@@ -29,6 +29,7 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
   bool register = false;
   bool busy = false;
   bool obscure = true;
+  bool rememberMe = true;
   String vehicleType = 'motorcycle';
   String? message;
 
@@ -133,6 +134,20 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    final mail = email.text.trim().toLowerCase();
+    if (mail.isEmpty || !mail.contains('@')) {
+      setState(() => message = 'Şifre sıfırlamak için önce e-posta adresini yaz.');
+      return;
+    }
+    try {
+      await data.client.auth.resetPasswordForEmail(mail);
+      if (mounted) setState(() => message = 'Şifre sıfırlama bağlantısı e-posta adresine gönderildi.');
+    } catch (e) {
+      if (mounted) setState(() => message = e.toString().replaceFirst('AuthException(message: ', '').replaceAll(')', ''));
+    }
+  }
+
   String _authMessage(String raw) {
     final text = raw.toLowerCase();
     if (text.contains('invalid login')) return 'E-posta veya şifre hatalı.';
@@ -151,122 +166,133 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    height: 180,
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF168CF5), Color(0xFF4BC8FF)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                  _hero(),
+                  Transform.translate(
+                    offset: const Offset(0, -18),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
                       ),
-                      borderRadius: BorderRadius.circular(32),
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        CircleAvatar(
-                          radius: 27,
-                          backgroundColor: Colors.white24,
-                          child: Icon(Icons.two_wheeler_rounded, color: Colors.white, size: 30),
-                        ),
-                        SizedBox(height: 13),
-                        Text('Kurye Girişi', style: TextStyle(color: Colors.white, fontSize: 29, fontWeight: FontWeight.w900)),
-                        Text('İş havuzu, kazanç ve teslimatlar tek hesapta.', style: TextStyle(color: Colors.white70)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    height: 52,
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: const Color(0xFFE8F2FC), borderRadius: BorderRadius.circular(18)),
-                    child: Row(
-                      children: [
-                        Expanded(child: _mode(false, 'Giriş Yap')),
-                        Expanded(child: _mode(true, 'Kurye Ol')),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  if (register) ...[
-                    TextField(controller: fullName, textCapitalization: TextCapitalization.words, decoration: _input('Ad Soyad', Icons.person_outline_rounded)),
-                    const SizedBox(height: 10),
-                    TextField(controller: phone, keyboardType: TextInputType.phone, decoration: _input('Telefon', Icons.phone_outlined)),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      value: vehicleType,
-                      decoration: _input('Araç tipi', Icons.two_wheeler_outlined),
-                      items: const [
-                        DropdownMenuItem(value: 'motorcycle', child: Text('Motosiklet')),
-                        DropdownMenuItem(value: 'car', child: Text('Otomobil')),
-                      ],
-                      onChanged: (v) => setState(() => vehicleType = v ?? 'motorcycle'),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  TextField(
-                    controller: email,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    decoration: _input('E-posta', Icons.email_outlined),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: password,
-                    obscureText: obscure,
-                    decoration: _input('Şifre', Icons.lock_outline_rounded).copyWith(
-                      suffixIcon: IconButton(
-                        onPressed: () => setState(() => obscure = !obscure),
-                        icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _tabs(),
+                          const SizedBox(height: 18),
+                          if (register) ...[
+                            _field(fullName, 'Ad Soyad', Icons.person_outline_rounded),
+                            const SizedBox(height: 10),
+                            _field(phone, 'Telefon', Icons.phone_outlined, keyboard: TextInputType.phone),
+                            const SizedBox(height: 10),
+                            DropdownButtonFormField<String>(
+                              value: vehicleType,
+                              decoration: _input('Araç tipi', Icons.two_wheeler_outlined),
+                              items: const [
+                                DropdownMenuItem(value: 'motorcycle', child: Text('Motosiklet')),
+                                DropdownMenuItem(value: 'car', child: Text('Otomobil')),
+                              ],
+                              onChanged: (v) => setState(() => vehicleType = v ?? 'motorcycle'),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          _field(email, 'E-posta', Icons.mail_outline_rounded, keyboard: TextInputType.emailAddress),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: password,
+                            obscureText: obscure,
+                            decoration: _input('Şifre', Icons.lock_outline_rounded).copyWith(
+                              suffixIcon: IconButton(
+                                onPressed: () => setState(() => obscure = !obscure),
+                                icon: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: muted, size: 20),
+                              ),
+                            ),
+                            onSubmitted: register ? null : (_) => _submit(),
+                          ),
+                          if (register) ...[
+                            const SizedBox(height: 10),
+                            TextField(controller: passwordAgain, obscureText: obscure, decoration: _input('Şifre Tekrar', Icons.lock_reset_rounded)),
+                          ],
+                          if (!register) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                InkWell(
+                                  onTap: () => setState(() => rememberMe = !rememberMe),
+                                  child: Row(children: [
+                                    Container(
+                                      width: 21,
+                                      height: 21,
+                                      decoration: BoxDecoration(color: rememberMe ? orange : Colors.white, borderRadius: BorderRadius.circular(5), border: Border.all(color: rememberMe ? orange : const Color(0xFFD8D9DE))),
+                                      child: rememberMe ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text('Beni hatırla', style: TextStyle(color: Color(0xFF4E5360), fontSize: 13.5, fontWeight: FontWeight.w600)),
+                                  ]),
+                                ),
+                                const Spacer(),
+                                TextButton(onPressed: _forgotPassword, child: const Text('Şifremi unuttum?', style: TextStyle(color: orange, fontWeight: FontWeight.w700, fontSize: 13.5))),
+                              ],
+                            ),
+                          ],
+                          if (message != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(color: const Color(0xFFFFF2EA), borderRadius: BorderRadius.circular(14)),
+                              child: Text(message!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF9B4B24), fontWeight: FontWeight.w700, fontSize: 12.5)),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 54,
+                            child: FilledButton(
+                              onPressed: busy ? null : _submit,
+                              style: FilledButton.styleFrom(backgroundColor: orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17))),
+                              child: busy
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : Text(register ? 'Kayıt Ol' : 'Giriş Yap', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                            ),
+                          ),
+                          if (!register) ...[
+                            const SizedBox(height: 14),
+                            const Row(children: [Expanded(child: Divider()), Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Text('veya', style: TextStyle(color: muted))), Expanded(child: Divider())]),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 50,
+                              child: OutlinedButton.icon(
+                                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Google ile giriş yakında aktif olacak.'))),
+                                icon: const Text('G', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Color(0xFF4285F4))),
+                                label: const Text('Google ile giriş yap', style: TextStyle(color: navy, fontWeight: FontWeight.w700)),
+                                style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFE2E2E7)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            InkWell(
+                              onTap: () => setState(() { register = true; message = null; }),
+                              borderRadius: BorderRadius.circular(18),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                decoration: BoxDecoration(color: const Color(0xFFFFF1E9), borderRadius: BorderRadius.circular(18)),
+                                child: const Row(children: [
+                                  Icon(Icons.delivery_dining_rounded, color: orange, size: 34),
+                                  SizedBox(width: 14),
+                                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Henüz hesabın yok mu?', style: TextStyle(color: navy, fontSize: 13)), SizedBox(height: 2), Text('Kayıt ol  →', style: TextStyle(color: orange, fontSize: 17, fontWeight: FontWeight.w800))])),
+                                ]),
+                              ),
+                            ),
+                          ],
+                          if (register) ...[
+                            const SizedBox(height: 12),
+                            const Text('Yeni kurye hesabı onay bekler. Admin onayından sonra online olup iş havuzundan iş alabilirsin.', textAlign: TextAlign.center, style: TextStyle(color: muted, fontSize: 11.5, height: 1.35)),
+                          ],
+                        ],
                       ),
                     ),
-                    onSubmitted: register ? null : (_) => _submit(),
                   ),
-                  if (register) ...[
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: passwordAgain,
-                      obscureText: obscure,
-                      decoration: _input('Şifre Tekrar', Icons.lock_reset_rounded),
-                    ),
-                  ],
-                  if (message != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: const Color(0xFFFFF4DF), borderRadius: BorderRadius.circular(16)),
-                      child: Text(message!, style: const TextStyle(color: Color(0xFF7A5A13), fontWeight: FontWeight.w700)),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 56,
-                    child: FilledButton.icon(
-                      onPressed: busy ? null : _submit,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: blue,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(19)),
-                      ),
-                      icon: busy
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Icon(register ? Icons.person_add_alt_1_rounded : Icons.login_rounded),
-                      label: Text(busy ? 'İşleniyor...' : register ? 'Kurye Hesabı Oluştur' : 'Giriş Yap', style: const TextStyle(fontWeight: FontWeight.w900)),
-                    ),
-                  ),
-                  if (register) ...[
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Yeni kurye hesabı varsayılan olarak onay bekler. Admin onayından sonra online olup iş havuzundan iş alabilirsin.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: muted, fontSize: 12, height: 1.4),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -276,29 +302,82 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
     );
   }
 
+  Widget _hero() => SizedBox(
+        height: 360,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Color(0xFFFFFCF9), Color(0xFFFFE8DA)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              ),
+            ),
+            Positioned(right: -90, top: -35, child: Container(width: 300, height: 300, decoration: const BoxDecoration(color: orange, shape: BoxShape.circle))),
+            Positioned(right: -8, bottom: 0, child: Image.asset('assets/images/kurye_hd.png', width: 245, height: 285, fit: BoxFit.contain)),
+            Positioned(
+              left: 28,
+              top: 42,
+              right: 210,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                Text('YBB', style: TextStyle(color: navy, fontSize: 40, fontWeight: FontWeight.w900, letterSpacing: -2)),
+                SizedBox(height: 8),
+                Text('Sen yolda,\nkazanç sana yakın.', style: TextStyle(color: navy, fontSize: 21, fontWeight: FontWeight.w800, height: 1.08)),
+                SizedBox(height: 26),
+                _Benefit(icon: Icons.bolt_rounded, text: 'Esnek\nçalışma'),
+                SizedBox(height: 12),
+                _Benefit(icon: Icons.account_balance_wallet_outlined, text: 'Daha fazla\nkazanç'),
+                SizedBox(height: 12),
+                _Benefit(icon: Icons.location_on_outlined, text: 'Kendi\nrotanı seç'),
+              ]),
+            ),
+          ],
+        ),
+      );
+
+  Widget _tabs() => Row(children: [Expanded(child: _mode(false, 'Giriş Yap')), Expanded(child: _mode(true, 'Kayıt Ol'))]);
+
   Widget _mode(bool value, String label) {
     final selected = register == value;
     return InkWell(
       onTap: busy ? null : () => setState(() { register = value; message = null; }),
-      borderRadius: BorderRadius.circular(15),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+      child: Container(
+        height: 48,
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: selected ? const [BoxShadow(color: Color(0x10000000), blurRadius: 8)] : null,
-        ),
-        child: Text(label, style: TextStyle(color: selected ? navy : muted, fontWeight: FontWeight.w900)),
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: selected ? orange : const Color(0xFFE7E7EA), width: selected ? 2.5 : 1))),
+        child: Text(label, style: TextStyle(color: selected ? orange : muted, fontWeight: FontWeight.w800, fontSize: 17)),
       ),
     );
   }
 
-  InputDecoration _input(String label, IconData icon) => InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: blue),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(17), borderSide: BorderSide.none),
+  Widget _field(TextEditingController controller, String label, IconData icon, {TextInputType? keyboard}) => TextField(
+        controller: controller,
+        keyboardType: keyboard,
+        textCapitalization: label == 'Ad Soyad' ? TextCapitalization.words : TextCapitalization.none,
+        autocorrect: false,
+        decoration: _input(label, icon),
       );
+
+  InputDecoration _input(String label, IconData icon) => InputDecoration(
+        hintText: label,
+        prefixIcon: Icon(icon, color: muted, size: 21),
+        filled: true,
+        fillColor: const Color(0xFFF8F8FB),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE8E8ED))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE8E8ED))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: orange, width: 1.4)),
+      );
+}
+
+class _Benefit extends StatelessWidget {
+  const _Benefit({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        Container(width: 38, height: 38, decoration: BoxDecoration(color: const Color(0xFFFFF0E7), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: _CourierAuthPageState.orange, size: 22)),
+        const SizedBox(width: 10),
+        Text(text, style: const TextStyle(color: _CourierAuthPageState.navy, fontSize: 13, fontWeight: FontWeight.w700, height: 1.05)),
+      ]);
 }
