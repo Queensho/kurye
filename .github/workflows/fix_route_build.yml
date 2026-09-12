@@ -65,6 +65,51 @@ jobs:
               "final phone = (row['recipient_phone'] ?? '').toString();",
           )
           p.write_text(s)
+
+          p = Path('lib/courier_earnings_detail_page.dart')
+          s = p.read_text()
+          if 'bool earningsHidden = false;' not in s:
+              s = s.replace(
+                  "  int selectedTab = 0;\n  Map<String, dynamic> summary = {};\n",
+                  "  int selectedTab = 0;\n  Map<String, dynamic> summary = {};\n  bool earningsHidden = false;\n  bool onlineBusy = false;\n",
+                  1,
+              )
+          marker = "  double n(String key) => (summary[key] as num?)?.toDouble() ?? 0;\n"
+          if 'Future<void> _pickPeriod()' not in s:
+              methods = """  Future<void> _pickPeriod() async {\n    final result = await showModalBottomSheet<int>(\n      context: context,\n      backgroundColor: Colors.white,\n      showDragHandle: true,\n      builder: (context) => SafeArea(\n        child: Column(\n          mainAxisSize: MainAxisSize.min,\n          children: [\n            const ListTile(title: Text('Dönem seç', style: TextStyle(fontWeight: FontWeight.w900))),\n            ListTile(title: const Text('Günlük'), trailing: selectedTab == 0 ? const Icon(Icons.check_rounded, color: purple) : null, onTap: () => Navigator.pop(context, 0)),\n            ListTile(title: const Text('Haftalık'), trailing: selectedTab == 1 ? const Icon(Icons.check_rounded, color: purple) : null, onTap: () => Navigator.pop(context, 1)),\n            ListTile(title: const Text('Aylık'), trailing: selectedTab == 2 ? const Icon(Icons.check_rounded, color: purple) : null, onTap: () => Navigator.pop(context, 2)),\n          ],\n        ),\n      ),\n    );\n    if (result != null && mounted) setState(() => selectedTab = result);\n  }\n\n  Future<void> _goOnline() async {\n    if (onlineBusy) return;\n    setState(() => onlineBusy = true);\n    try {\n      await data.setCourierOnline(online: true, vehicleType: 'motorcycle');\n      if (mounted) {\n        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Online oldun.')));\n      }\n    } catch (e) {\n      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Online olunamadı: $e')));\n    } finally {\n      if (mounted) setState(() => onlineBusy = false);\n    }\n  }\n\n  void _showEarningTips() {\n    showModalBottomSheet<void>(\n      context: context,\n      showDragHandle: true,\n      builder: (context) => const SafeArea(\n        child: Padding(\n          padding: EdgeInsets.fromLTRB(20, 8, 20, 24),\n          child: Column(\n            mainAxisSize: MainAxisSize.min,\n            crossAxisAlignment: CrossAxisAlignment.start,\n            children: [\n              Text('Daha fazla kazan', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),\n              SizedBox(height: 12),\n              Text('Yoğun saatlerde online kal, yakın işleri hızlı kabul et ve teslimatları zamanında tamamla.'),\n            ],\n          ),\n        ),\n      ),\n    );\n  }\n\n"""
+              s = s.replace(marker, methods + marker, 1)
+          s = s.replace(
+              "                          Icon(Icons.visibility_off_outlined,\n                              color: muted, size: 17 * s),",
+              "                          InkWell(onTap: () => setState(() => earningsHidden = !earningsHidden), child: Icon(earningsHidden ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: muted, size: 17 * s)),",
+              1,
+          )
+          s = s.replace("                        money(total),\n", "                        earningsHidden ? '••••' : money(total),\n", 1)
+          s = s.replace(
+              "            Container(\n              padding: EdgeInsets.symmetric(\n                horizontal: 13 * s,\n                vertical: 8 * s,\n              ),",
+              "            InkWell(\n              borderRadius: BorderRadius.circular(22 * s),\n              onTap: _pickPeriod,\n              child: Container(\n              padding: EdgeInsets.symmetric(\n                horizontal: 13 * s,\n                vertical: 8 * s,\n              ),",
+              1,
+          )
+          s = s.replace(
+              "                  Icon(Icons.keyboard_arrow_down_rounded,\n                      color: purple, size: 17 * s),\n                ],\n              ),\n            ),\n          ],",
+              "                  Icon(Icons.keyboard_arrow_down_rounded,\n                      color: purple, size: 17 * s),\n                ],\n              ),\n            ),\n            ),\n          ],",
+              1,
+          )
+          s = s.replace(
+              "  Widget _moreCard(double s) => Container(\n",
+              "  Widget _moreCard(double s) => InkWell(\n        borderRadius: BorderRadius.circular(18 * s),\n        onTap: _showEarningTips,\n        child: Container(\n",
+              1,
+          )
+          s = s.replace(
+              "            Icon(Icons.chevron_right_rounded,\n                color: const Color(0xFF8A245E), size: 25 * s),\n          ],\n        ),\n      );\n\n  Widget _onlineButton",
+              "            Icon(Icons.chevron_right_rounded,\n                color: const Color(0xFF8A245E), size: 25 * s),\n          ],\n        ),\n      ),\n      );\n\n  Widget _onlineButton",
+              1,
+          )
+          start = s.find("  Widget _onlineButton(double s) => Container(")
+          end = s.find("\n}\n\nclass _RingPainter", start)
+          if start != -1 and end != -1:
+              online = """  Widget _onlineButton(double s) => Container(\n        color: bg,\n        padding: EdgeInsets.fromLTRB(12 * s, 8 * s, 12 * s, 12 * s),\n        child: SafeArea(\n          top: false,\n          child: SizedBox(\n            height: 58 * s,\n            width: double.infinity,\n            child: FilledButton.icon(\n              onPressed: onlineBusy ? null : _goOnline,\n              style: FilledButton.styleFrom(backgroundColor: purple, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28 * s))),\n              icon: onlineBusy ? SizedBox(width: 18 * s, height: 18 * s, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Icon(Icons.bolt_rounded, size: 28 * s),\n              label: Text(onlineBusy ? 'Online yapılıyor...' : 'Online Ol, Siparişleri Kaçırma', style: TextStyle(fontSize: 16 * s, fontWeight: FontWeight.w900)),\n            ),\n          ),\n        ),\n      );\n"""
+              s = s[:start] + online + s[end:]
+          p.write_text(s)
           PY
       - name: Commit fixes
         run: |
@@ -74,6 +119,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/courier_assigned_jobs_page.dart lib/courier_active_job_page.dart lib/data/app_data_service.dart lib/customer_support_tickets_page.dart lib/customer_live_tracking_page.dart lib/courier_active_job_realtime_page.dart
-          git commit -m "Fix courier customer phone lookup"
+          git add lib/courier_assigned_jobs_page.dart lib/courier_active_job_page.dart lib/data/app_data_service.dart lib/customer_support_tickets_page.dart lib/customer_live_tracking_page.dart lib/courier_active_job_realtime_page.dart lib/courier_earnings_detail_page.dart
+          git commit -m "Activate earnings detail controls"
           git push
