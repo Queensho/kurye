@@ -43,6 +43,11 @@ jobs:
           s = p.read_text()
           s = s.replace('? const ListView(children: [SizedBox(height: 260), Center(child: CircularProgressIndicator(color: orange))])', '? ListView(children: const [SizedBox(height: 260), Center(child: CircularProgressIndicator(color: orange))])')
           p.write_text(s)
+
+          p = Path('lib/customer_live_tracking_page.dart')
+          s = p.read_text()
+          s = s.replace('Icons.stacked_coins_rounded', 'Icons.payments_rounded')
+          p.write_text(s)
           PY
       - name: Commit fixes
         run: |
@@ -52,6 +57,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/courier_assigned_jobs_page.dart lib/courier_active_job_page.dart lib/data/app_data_service.dart lib/customer_support_tickets_page.dart
+          git add lib/courier_assigned_jobs_page.dart lib/courier_active_job_page.dart lib/data/app_data_service.dart lib/customer_support_tickets_page.dart lib/customer_live_tracking_page.dart
           git commit -m "Fix web build blockers"
           git push
