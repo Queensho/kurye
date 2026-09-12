@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'courier_assigned_jobs_page.dart';
 import 'courier_route_map_page.dart';
 import 'data/app_data_service.dart';
 
@@ -96,7 +97,9 @@ class _CourierPoolJobDetailPageState extends State<CourierPoolJobDetailPage> {
     try {
       await data.claimShipment(item['id'].toString());
       if (!mounted) return;
-      Navigator.pop(context, true);
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const CourierAssignedJobsPage()),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
