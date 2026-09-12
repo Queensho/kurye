@@ -17,22 +17,31 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-      - name: Use courier-specific compact chat
+      - name: Fix chat wiring and build typing
         shell: python
         run: |
           from pathlib import Path
+
           p = Path('lib/courier_active_job_realtime_page.dart')
           s = p.read_text()
-          original = s
           s = s.replace("import 'shipment_chat_page.dart';", "import 'courier_shipment_chat_page.dart';")
           s = s.replace(
               "builder: (_) => ShipmentChatPage(\n          shipmentId: widget.shipmentId,\n          title: 'Müşteri',\n        ),",
               "builder: (_) => CourierShipmentChatPage(\n          shipmentId: widget.shipmentId,\n        ),",
           )
-          if s == original:
-              print('No matching courier chat code found; already patched or source changed')
-          else:
-              p.write_text(s)
+          p.write_text(s)
+
+          for file_name in ['lib/shipment_chat_page.dart', 'lib/courier_shipment_chat_page.dart']:
+              p = Path(file_name)
+              s = p.read_text()
+              old = """      final results = await Future.wait([\n        data.client.rpc(\n          'ensure_shipment_conversation',\n          params: {'p_shipment_id': widget.shipmentId},\n        ),\n        data.client.from('shipments').select().eq('id', widget.shipmentId).single(),\n      ]);\n\n      final conversation = Map<String, dynamic>.from(results[0] as Map);\n      shipment = Map<String, dynamic>.from(results[1] as Map);\n"""
+              if file_name.endswith('courier_shipment_chat_page.dart'):
+                  old = """      final results = await Future.wait([\n        data.client.rpc('ensure_shipment_conversation', params: {'p_shipment_id': widget.shipmentId}),\n        data.client.from('shipments').select().eq('id', widget.shipmentId).single(),\n      ]);\n      final conversation = Map<String, dynamic>.from(results[0] as Map);\n      shipment = Map<String, dynamic>.from(results[1] as Map);\n"""
+              new = """      final conversationRaw = await data.client.rpc(\n        'ensure_shipment_conversation',\n        params: {'p_shipment_id': widget.shipmentId},\n      );\n      final shipmentRaw = await data.client\n          .from('shipments')\n          .select()\n          .eq('id', widget.shipmentId)\n          .single();\n      final conversation = Map<String, dynamic>.from(conversationRaw as Map);\n      shipment = Map<String, dynamic>.from(shipmentRaw);\n"""
+              if old in s:
+                  s = s.replace(old, new, 1)
+                  p.write_text(s)
+
       - name: Commit patch
         run: |
           if git diff --quiet; then
@@ -41,7 +50,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/courier_active_job_realtime_page.dart
-          git commit -m "Use compact purple courier package chat"
+          git add lib/courier_active_job_realtime_page.dart lib/shipment_chat_page.dart lib/courier_shipment_chat_page.dart
+          git commit -m "Fix shipment chat web build"
           git pull --rebase origin main
           git push origin HEAD:main
