@@ -55,7 +55,7 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
       if(!register)...[const SizedBox(height:10),const Row(children:[Expanded(child:Divider()),Padding(padding:EdgeInsets.symmetric(horizontal:10),child:Text('veya',style:TextStyle(color:muted))),Expanded(child:Divider())]),const SizedBox(height:8),SizedBox(height:46,child:OutlinedButton.icon(onPressed:()=>ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Google ile giriş yakında aktif olacak.'))),icon:const Text('G',style:TextStyle(fontWeight:FontWeight.w900,fontSize:19,color:Color(0xFF4285F4))),label:const Text('Google ile giriş yap',style:TextStyle(color:navy,fontWeight:FontWeight.w700)),style:OutlinedButton.styleFrom(side:const BorderSide(color:Color(0xFFE2E2E7)),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))))),const SizedBox(height:10),InkWell(onTap:()=>setState((){register=true;message=null;}),child:Container(padding:const EdgeInsets.symmetric(horizontal:15,vertical:10),decoration:BoxDecoration(color:const Color(0xFFFFF1E9),borderRadius:BorderRadius.circular(16)),child:const Row(children:[Icon(Icons.delivery_dining_rounded,color:orange,size:30),SizedBox(width:12),Expanded(child:Text('Henüz hesabın yok mu?   Kayıt ol  →',style:TextStyle(color:orange,fontSize:14,fontWeight:FontWeight.w800)))])))],
       if(register)...[const SizedBox(height:9),const Text('Yeni kurye hesabı onay bekler. Admin onayından sonra online olup iş havuzundan iş alabilirsin.',textAlign:TextAlign.center,style:TextStyle(color:muted,fontSize:11,height:1.3))]
     ])))
-  ]))));
+  ])))));
 
   Widget _hero()=>SizedBox(
     height:170,
