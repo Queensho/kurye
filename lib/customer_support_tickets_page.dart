@@ -96,7 +96,7 @@ class _CustomerSupportTicketsPageState extends State<CustomerSupportTicketsPage>
       body: RefreshIndicator(
         onRefresh: _load,
         child: loading
-            ? const ListView(children: [SizedBox(height: 260), Center(child: CircularProgressIndicator(color: orange))])
+            ? ListView(children: const [SizedBox(height: 260), Center(child: CircularProgressIndicator(color: orange))])
             : error != null
                 ? ListView(children: [
                     const SizedBox(height: 160),

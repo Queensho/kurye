@@ -148,7 +148,7 @@ class AppDataService {
 
     final LocationSettings settings;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      settings = const AndroidSettings(
+      settings = AndroidSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 15,
         intervalDuration: Duration(seconds: 15),
