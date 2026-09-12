@@ -93,7 +93,16 @@ class _ShipmentChatPageState extends State<ShipmentChatPage> {
           .order('created_at')
           .listen((rows) {
         if (!mounted) return;
-        setState(() => messages = List<Map<String, dynamic>>.from(rows));
+        final ordered = List<Map<String, dynamic>>.from(rows)
+          ..sort((a, b) {
+            final ad = DateTime.tryParse('${a['created_at'] ?? ''}');
+            final bd = DateTime.tryParse('${b['created_at'] ?? ''}');
+            if (ad == null && bd == null) return 0;
+            if (ad == null) return -1;
+            if (bd == null) return 1;
+            return ad.compareTo(bd);
+          });
+        setState(() => messages = ordered);
         _markRead();
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
       });
@@ -417,7 +426,7 @@ class _ShipmentChatPageState extends State<ShipmentChatPage> {
   }
 
   Widget _quickReplies() {
-    const items = ['Yoldayım 🚀', 'Vardım 📍', 'Teslim aldım ✅', 'Teslim edildi ✓'];
+    const items = ['Tamamdır 👍', 'Teşekkürler 🙏', 'Konumunuzu görüyorum 📍', 'Güvenliğe bırakabilirsiniz ✅'];
     return SizedBox(
       height: 43,
       child: ListView.separated(
