@@ -1,0 +1,1 @@
+Ana ekran görsel assetleri bu klasörde tutulur.
