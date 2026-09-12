@@ -423,19 +423,14 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
             ]),
           ),
           Positioned(
-            right: 12,
-            bottom: -2,
-            width: 148,
-            height: 128,
-            child: Image.asset('assets/images/kurye_header_hd.png', fit: BoxFit.contain, alignment: Alignment.bottomCenter),
-          ),
-          Positioned(
             right: 10,
-            top: 34,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
-              child: const Text('Yola\nçıkıyorum! 🚀', textAlign: TextAlign.center, style: TextStyle(color: navy, fontSize: 11.5, height: 1.25, fontWeight: FontWeight.w900)),
+            bottom: -2,
+            width: 154,
+            height: 132,
+            child: Image.asset(
+              'assets/images/Yollacik.png',
+              fit: BoxFit.contain,
+              alignment: Alignment.bottomCenter,
             ),
           ),
         ],
