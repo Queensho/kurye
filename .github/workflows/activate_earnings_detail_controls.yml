@@ -1,0 +1,191 @@
+name: Activate Earnings Detail Controls
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Activate earnings controls
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('lib/courier_earnings_detail_page.dart')
+          s = p.read_text()
+          original = s
+
+          s = s.replace(
+              "  int selectedTab = 0;\n  Map<String, dynamic> summary = {};\n",
+              "  int selectedTab = 0;\n  Map<String, dynamic> summary = {};\n  bool earningsHidden = false;\n  bool onlineBusy = false;\n",
+              1,
+          )
+
+          marker = "  double n(String key) => (summary[key] as num?)?.toDouble() ?? 0;\n"
+          if "Future<void> _pickPeriod()" not in s:
+              methods = r'''  Future<void> _pickPeriod() async {
+    final result = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Dönem seç', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: navy)),
+              ),
+              const SizedBox(height: 10),
+              for (final item in const [(0, 'Günlük'), (1, 'Haftalık'), (2, 'Aylık')])
+                ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  leading: Icon(item.$1 == selectedTab ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: purple),
+                  title: Text(item.$2, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  onTap: () => Navigator.pop(context, item.$1),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (result != null && mounted) setState(() => selectedTab = result);
+  }
+
+  void _showEarningTips() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      builder: (context) => const SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(22, 8, 22, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Daha fazla kazan', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: navy)),
+              SizedBox(height: 14),
+              ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.bolt_rounded, color: orange), title: Text('Yoğun saatlerde online kal', style: TextStyle(fontWeight: FontWeight.w800))),
+              ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.route_rounded, color: purple), title: Text('Yakın gönderileri hızlı kabul et', style: TextStyle(fontWeight: FontWeight.w800))),
+              ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.star_rounded, color: Color(0xFFFFB020)), title: Text('Teslimatları zamanında tamamla', style: TextStyle(fontWeight: FontWeight.w800))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _goOnline() async {
+    if (onlineBusy) return;
+    setState(() => onlineBusy = true);
+    try {
+      await data.setCourierOnline(online: true, vehicleType: 'motorcycle');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Online oldun. Yeni siparişleri görebilirsin.')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Online olunamadı: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => onlineBusy = false);
+    }
+  }
+
+'''
+              s = s.replace(marker, methods + marker, 1)
+
+          s = s.replace(
+              "                          Icon(Icons.visibility_off_outlined,\n                              color: muted, size: 17 * s),",
+              "                          InkWell(\n                            borderRadius: BorderRadius.circular(20),\n                            onTap: () => setState(() => earningsHidden = !earningsHidden),\n                            child: Padding(\n                              padding: EdgeInsets.all(2 * s),\n                              child: Icon(\n                                earningsHidden ? Icons.visibility_outlined : Icons.visibility_off_outlined,\n                                color: muted,\n                                size: 17 * s,\n                              ),\n                            ),\n                          ),",
+              1,
+          )
+          s = s.replace("                        money(total),\n", "                        earningsHidden ? '••••' : money(total),\n", 1)
+
+          # Header period chip: make the existing chip tappable.
+          header_old = """            Container(\n              padding: EdgeInsets.symmetric(\n                horizontal: 12 * s,\n                vertical: 9 * s,\n              ),\n              decoration: BoxDecoration(\n                color: Colors.white.withValues(alpha: .10),\n                borderRadius: BorderRadius.circular(22 * s),\n              ),\n              child: Row(\n"""
+          header_new = """            InkWell(\n              borderRadius: BorderRadius.circular(22 * s),\n              onTap: _pickPeriod,\n              child: Container(\n                padding: EdgeInsets.symmetric(\n                  horizontal: 12 * s,\n                  vertical: 9 * s,\n                ),\n                decoration: BoxDecoration(\n                  color: Colors.white.withValues(alpha: .10),\n                  borderRadius: BorderRadius.circular(22 * s),\n                ),\n                child: Row(\n"""
+          s = s.replace(header_old, header_new, 1)
+          # close the extra InkWell after the first header chip row/container.
+          header_close = """                ],\n              ),\n            ),\n          ],\n        ),\n      );\n\n  Widget _tabs"""
+          header_close_new = """                  ],\n                ),\n              ),\n            ),\n          ],\n        ),\n      );\n\n  Widget _tabs"""
+          s = s.replace(header_close, header_close_new, 1)
+
+          # Hourly period selector.
+          chip_old = """            Container(\n              padding: EdgeInsets.symmetric(\n                horizontal: 13 * s,\n                vertical: 8 * s,\n              ),\n              decoration: BoxDecoration(\n                color: Colors.white,\n                borderRadius: BorderRadius.circular(22 * s),\n                border: Border.all(color: const Color(0xFFE8E6EE)),\n              ),\n              child: Row(\n"""
+          chip_new = """            InkWell(\n              borderRadius: BorderRadius.circular(22 * s),\n              onTap: _pickPeriod,\n              child: Container(\n                padding: EdgeInsets.symmetric(\n                  horizontal: 13 * s,\n                  vertical: 8 * s,\n                ),\n                decoration: BoxDecoration(\n                  color: Colors.white,\n                  borderRadius: BorderRadius.circular(22 * s),\n                  border: Border.all(color: const Color(0xFFE8E6EE)),\n                ),\n                child: Row(\n"""
+          s = s.replace(chip_old, chip_new, 1)
+          chip_close = """                ],\n              ),\n            ),\n          ],\n        ),\n        SizedBox(height: 12 * s),"""
+          chip_close_new = """                  ],\n                ),\n              ),\n            ),\n          ],\n        ),\n        SizedBox(height: 12 * s),"""
+          s = s.replace(chip_close, chip_close_new, 1)
+
+          # Make the more-card clickable.
+          s = s.replace(
+              "  Widget _moreCard(double s) => Container(\n",
+              "  Widget _moreCard(double s) => InkWell(\n        borderRadius: BorderRadius.circular(18 * s),\n        onTap: _showEarningTips,\n        child: Container(\n",
+              1,
+          )
+          more_close = """          ],\n        ),\n      );\n\n  Widget _onlineButton"""
+          more_close_new = """          ],\n        ),\n      ),\n      );\n\n  Widget _onlineButton"""
+          s = s.replace(more_close, more_close_new, 1)
+
+          # Replace bottom CTA with a real button.
+          start = s.index("  Widget _onlineButton(double s) => Container(")
+          end = s.index("\n}\n\nclass _RingPainter", start)
+          online = r'''  Widget _onlineButton(double s) => Container(
+        color: bg,
+        padding: EdgeInsets.fromLTRB(12 * s, 8 * s, 12 * s, 12 * s),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 58 * s,
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onlineBusy ? null : _goOnline,
+              style: FilledButton.styleFrom(
+                backgroundColor: purple,
+                disabledBackgroundColor: purple.withValues(alpha: .55),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28 * s)),
+              ),
+              icon: onlineBusy
+                  ? SizedBox(width: 20 * s, height: 20 * s, child: const CircularProgressIndicator(strokeWidth: 2.3, color: Colors.white))
+                  : Icon(Icons.bolt_rounded, color: Colors.white, size: 28 * s),
+              label: Text(
+                onlineBusy ? 'Online yapılıyor...' : 'Online Ol, Siparişleri Kaçırma',
+                style: TextStyle(color: Colors.white, fontSize: 16 * s, fontWeight: FontWeight.w900),
+              ),
+            ),
+          ),
+        ),
+      );
+'''
+          s = s[:start] + online + s[end:]
+
+          if s == original:
+              raise SystemExit('No changes applied')
+          p.write_text(s)
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/courier_earnings_detail_page.dart
+          git commit -m "Activate earnings detail buttons"
+          git push
