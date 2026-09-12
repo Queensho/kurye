@@ -709,7 +709,7 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
                           ),
                           SizedBox(height: 4 * s),
                           Text(
-                            money(total),
+                            earningsHidden ? '••••' : money(total),
                             style: TextStyle(
                               color: navy,
                               fontSize: 18 * s,
