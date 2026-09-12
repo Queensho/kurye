@@ -1,0 +1,57 @@
+name: Fix Email Auth Service
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix_email_auth_service.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+      - name: Restore service and add email auth
+        run: |
+          git show ccb5b6204b7ae1e0594e60649a62a257ed698e18:lib/data/app_data_service.dart > lib/data/app_data_service.dart
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('lib/data/app_data_service.dart')
+          s=p.read_text()
+          marker='  Future<void> signUpWithPhonePassword({required String phone, required String password}) async {'
+          methods='''  Future<void> signUpWithEmailPassword({required String email, required String password}) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final res = await client.auth.signUp(email: cleanEmail, password: password);
+    if (res.user == null) throw StateError('Hesap oluşturulamadı.');
+    if (res.session == null) {
+      throw StateError('Kayıt oluşturuldu. E-posta adresine gönderilen doğrulama bağlantısını onayla, ardından giriş yap.');
+    }
+    await ensureProfile();
+    await client.from('profiles').update({'email': cleanEmail, 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('id', userId);
+    await ensureAccountActive();
+  }
+
+  Future<void> signInWithEmailPassword({required String email, required String password}) async {
+    final cleanEmail = email.trim().toLowerCase();
+    await client.auth.signInWithPassword(email: cleanEmail, password: password);
+    await ensureProfile();
+    await client.from('profiles').update({'email': cleanEmail, 'updated_at': DateTime.now().toUtc().toIso8601String()}).eq('id', userId);
+    await ensureAccountActive();
+  }
+
+'''
+          if marker not in s:
+              raise SystemExit('auth marker not found')
+          s=s.replace(marker, methods+marker, 1)
+          p.write_text(s)
+          PY
+      - name: Commit repair
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add lib/data/app_data_service.dart
+          git commit -m "Repair data service and add email auth"
+          git push
