@@ -1,0 +1,50 @@
+name: Fix Customer Chat Order Replies
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      - name: Patch customer shipment chat
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('lib/shipment_chat_page.dart')
+          s = p.read_text()
+          original = s
+
+          old = """          .listen((rows) {\n        if (!mounted) return;\n        setState(() => messages = List<Map<String, dynamic>>.from(rows));\n        _markRead();\n        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());\n      });"""
+          new = """          .listen((rows) {\n        if (!mounted) return;\n        final ordered = List<Map<String, dynamic>>.from(rows)\n          ..sort((a, b) {\n            final ad = DateTime.tryParse('${a['created_at'] ?? ''}');\n            final bd = DateTime.tryParse('${b['created_at'] ?? ''}');\n            if (ad == null && bd == null) return 0;\n            if (ad == null) return -1;\n            if (bd == null) return 1;\n            return ad.compareTo(bd);\n          });\n        setState(() => messages = ordered);\n        _markRead();\n        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());\n      });"""
+          if old not in s:
+              raise SystemExit('Message listener block not found')
+          s = s.replace(old, new)
+
+          old_replies = "const items = ['Yoldayım 🚀', 'Vardım 📍', 'Teslim aldım ✅', 'Teslim edildi ✓'];"
+          new_replies = "const items = ['Tamamdır 👍', 'Teşekkürler 🙏', 'Konumunuzu görüyorum 📍', 'Güvenliğe bırakabilirsiniz ✅'];"
+          if old_replies not in s:
+              raise SystemExit('Quick replies block not found')
+          s = s.replace(old_replies, new_replies)
+
+          if s == original:
+              raise SystemExit('No changes made')
+          p.write_text(s)
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/shipment_chat_page.dart
+          git commit -m "Keep latest customer chat message at bottom"
+          git pull --rebase origin main
+          git push origin HEAD:main
