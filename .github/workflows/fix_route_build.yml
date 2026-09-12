@@ -48,6 +48,19 @@ jobs:
           s = p.read_text()
           s = s.replace('Icons.stacked_coins_rounded', 'Icons.payments_rounded')
           p.write_text(s)
+
+          p = Path('lib/courier_active_job_realtime_page.dart')
+          s = p.read_text()
+          if "import 'shipment_chat_page.dart';" not in s:
+              s = s.replace("import 'data/app_data_service.dart';\n", "import 'data/app_data_service.dart';\nimport 'shipment_chat_page.dart';\n", 1)
+          if "void _openShipmentChat()" not in s:
+              marker = "  Future<bool> _confirm(String title, String action) async =>\n"
+              method = """  void _openShipmentChat() {\n    Navigator.of(context).push(\n      MaterialPageRoute(\n        builder: (_) => ShipmentChatPage(\n          shipmentId: widget.shipmentId,\n          title: 'Müşteri',\n        ),\n      ),\n    );\n  }\n\n"""
+              s = s.replace(marker, method + marker, 1)
+          old = """                IconButton(\n                  onPressed: () {},\n                  icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 26),\n                ),\n"""
+          new = """                IconButton(\n                  tooltip: 'Mesaj',\n                  onPressed: cancelled ? null : _openShipmentChat,\n                  icon: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 24),\n                ),\n"""
+          s = s.replace(old, new, 1)
+          p.write_text(s)
           PY
       - name: Commit fixes
         run: |
@@ -57,6 +70,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/courier_assigned_jobs_page.dart lib/courier_active_job_page.dart lib/data/app_data_service.dart lib/customer_support_tickets_page.dart lib/customer_live_tracking_page.dart
-          git commit -m "Fix web build blockers"
+          git add lib/courier_assigned_jobs_page.dart lib/courier_active_job_page.dart lib/data/app_data_service.dart lib/customer_support_tickets_page.dart lib/customer_live_tracking_page.dart lib/courier_active_job_realtime_page.dart
+          git commit -m "Add courier package chat"
           git push
