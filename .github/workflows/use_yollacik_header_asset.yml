@@ -1,0 +1,38 @@
+name: Use Yollacik Header Asset
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      - name: Replace customer tracking header art
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('lib/customer_live_tracking_page.dart')
+          s = p.read_text()
+          old = """          Positioned(\n            right: 12,\n            bottom: -2,\n            width: 148,\n            height: 128,\n            child: Image.asset('assets/images/kurye_header_hd.png', fit: BoxFit.contain, alignment: Alignment.bottomCenter),\n          ),\n          Positioned(\n            right: 10,\n            top: 34,\n            child: Container(\n              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),\n              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),\n              child: const Text('Yola\\nçıkıyorum! 🚀', textAlign: TextAlign.center, style: TextStyle(color: navy, fontSize: 11.5, height: 1.25, fontWeight: FontWeight.w900)),\n            ),\n          ),\n"""
+          new = """          Positioned(\n            right: 10,\n            bottom: -2,\n            width: 154,\n            height: 132,\n            child: Image.asset(\n              'assets/images/Yollacik.png',\n              fit: BoxFit.contain,\n              alignment: Alignment.bottomCenter,\n            ),\n          ),\n"""
+          if old not in s:
+              raise SystemExit('Expected customer header block not found')
+          p.write_text(s.replace(old, new, 1))
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/customer_live_tracking_page.dart
+          git commit -m "Use Yollacik customer tracking header"
+          git pull --rebase origin main
+          git push origin HEAD:main
