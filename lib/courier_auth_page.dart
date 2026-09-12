@@ -41,7 +41,7 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
   Future<void> _forgotPassword() async {final mail=email.text.trim().toLowerCase();if(mail.isEmpty||!mail.contains('@')){setState(()=>message='Şifre sıfırlamak için önce e-posta adresini yaz.');return;}try{await data.client.auth.resetPasswordForEmail(mail);if(mounted)setState(()=>message='Şifre sıfırlama bağlantısı e-posta adresine gönderildi.');}catch(e){if(mounted)setState(()=>message=e.toString());}}
   String _authMessage(String raw){final t=raw.toLowerCase();if(t.contains('invalid login'))return 'E-posta veya şifre hatalı.';if(t.contains('email not confirmed'))return 'E-posta adresini doğruladıktan sonra giriş yapabilirsin.';if(t.contains('already registered'))return 'Bu e-posta ile zaten bir hesap var.';return raw;}
 
-  @override Widget build(BuildContext context)=>Scaffold(backgroundColor:bg,body:SafeArea(child:Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:440),child:SingleChildScrollView(child:Column(children:[
+  @override Widget build(BuildContext context)=>Scaffold(backgroundColor:bg,body:Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:440),child:SingleChildScrollView(padding:EdgeInsets.zero,child:Column(mainAxisSize:MainAxisSize.min,children:[
     _hero(),
     Transform.translate(offset:const Offset(0,-8),child:Container(width:double.infinity,padding:const EdgeInsets.fromLTRB(22,10,22,18),decoration:const BoxDecoration(color:Colors.white,borderRadius:BorderRadius.vertical(top:Radius.circular(28))),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
       _tabs(),const SizedBox(height:12),
@@ -55,20 +55,12 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
       if(!register)...[const SizedBox(height:10),const Row(children:[Expanded(child:Divider()),Padding(padding:EdgeInsets.symmetric(horizontal:10),child:Text('veya',style:TextStyle(color:muted))),Expanded(child:Divider())]),const SizedBox(height:8),SizedBox(height:46,child:OutlinedButton.icon(onPressed:()=>ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Google ile giriş yakında aktif olacak.'))),icon:const Text('G',style:TextStyle(fontWeight:FontWeight.w900,fontSize:19,color:Color(0xFF4285F4))),label:const Text('Google ile giriş yap',style:TextStyle(color:navy,fontWeight:FontWeight.w700)),style:OutlinedButton.styleFrom(side:const BorderSide(color:Color(0xFFE2E2E7)),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))))),const SizedBox(height:10),InkWell(onTap:()=>setState((){register=true;message=null;}),child:Container(padding:const EdgeInsets.symmetric(horizontal:15,vertical:10),decoration:BoxDecoration(color:const Color(0xFFFFF1E9),borderRadius:BorderRadius.circular(16)),child:const Row(children:[Icon(Icons.delivery_dining_rounded,color:orange,size:30),SizedBox(width:12),Expanded(child:Text('Henüz hesabın yok mu?   Kayıt ol  →',style:TextStyle(color:orange,fontSize:14,fontWeight:FontWeight.w800)))])))],
       if(register)...[const SizedBox(height:9),const Text('Yeni kurye hesabı onay bekler. Admin onayından sonra online olup iş havuzundan iş alabilirsin.',textAlign:TextAlign.center,style:TextStyle(color:muted,fontSize:11,height:1.3))]
     ])))
-  ]))))));
+  ]))));
 
-  Widget _hero()=>Container(
+  Widget _hero()=>SizedBox(
     height:170,
     width:double.infinity,
-    color:bg,
-    alignment:Alignment.bottomCenter,
-    child:Image.asset(
-      'assets/images/Kgiris.png',
-      width:double.infinity,
-      height:170,
-      fit:BoxFit.cover,
-      alignment:Alignment.center,
-    ),
+    child:Image.asset('assets/images/Kgiris.png',width:double.infinity,height:170,fit:BoxFit.cover,alignment:Alignment.center),
   );
   Widget _tabs()=>Row(children:[Expanded(child:_mode(false,'Giriş Yap')),Expanded(child:_mode(true,'Kayıt Ol'))]);
   Widget _mode(bool value,String label){final selected=register==value;return InkWell(onTap:busy?null:()=>setState((){register=value;message=null;}),child:Container(height:42,alignment:Alignment.center,decoration:BoxDecoration(border:Border(bottom:BorderSide(color:selected?orange:const Color(0xFFE7E7EA),width:selected?2.5:1))),child:Text(label,style:TextStyle(color:selected?orange:muted,fontWeight:FontWeight.w800,fontSize:16))));}
