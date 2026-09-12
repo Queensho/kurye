@@ -63,7 +63,7 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
     color:bg,
     alignment:Alignment.bottomCenter,
     child:Image.asset(
-      'assets/images/Kuryegiris.png',
+      'assets/images/Kgiris.png',
       width:double.infinity,
       height:170,
       fit:BoxFit.cover,
