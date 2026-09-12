@@ -43,8 +43,8 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
 
   @override Widget build(BuildContext context)=>Scaffold(backgroundColor:bg,body:SafeArea(child:Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:440),child:SingleChildScrollView(child:Column(children:[
     _hero(),
-    Transform.translate(offset:const Offset(0,-12),child:Container(width:double.infinity,padding:const EdgeInsets.fromLTRB(22,12,22,20),decoration:const BoxDecoration(color:Colors.white,borderRadius:BorderRadius.vertical(top:Radius.circular(30))),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-      _tabs(),const SizedBox(height:14),
+    Transform.translate(offset:const Offset(0,-8),child:Container(width:double.infinity,padding:const EdgeInsets.fromLTRB(22,10,22,18),decoration:const BoxDecoration(color:Colors.white,borderRadius:BorderRadius.vertical(top:Radius.circular(28))),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
+      _tabs(),const SizedBox(height:12),
       if(register)...[_field(fullName,'Ad Soyad',Icons.person_outline_rounded),const SizedBox(height:8),_field(phone,'Telefon',Icons.phone_outlined,keyboard:TextInputType.phone),const SizedBox(height:8),DropdownButtonFormField<String>(value:vehicleType,decoration:_input('Araç tipi',Icons.two_wheeler_outlined),items:const [DropdownMenuItem(value:'motorcycle',child:Text('Motosiklet')),DropdownMenuItem(value:'car',child:Text('Otomobil'))],onChanged:(v)=>setState(()=>vehicleType=v??'motorcycle')),const SizedBox(height:8)],
       _field(email,'E-posta',Icons.mail_outline_rounded,keyboard:TextInputType.emailAddress),const SizedBox(height:8),
       TextField(controller:password,obscureText:obscure,decoration:_input('Şifre',Icons.lock_outline_rounded).copyWith(suffixIcon:IconButton(onPressed:()=>setState(()=>obscure=!obscure),icon:Icon(obscure?Icons.visibility_off_outlined:Icons.visibility_outlined,color:muted,size:20))),onSubmitted:register?null:(_)=>_submit()),
@@ -57,7 +57,19 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
     ])))
   ]))))));
 
-  Widget _hero()=>SizedBox(height:235,width:double.infinity,child:Image.asset('assets/images/Kuryegiris.png',fit:BoxFit.cover,alignment:Alignment.center));
+  Widget _hero()=>Container(
+    height:170,
+    width:double.infinity,
+    color:bg,
+    alignment:Alignment.bottomCenter,
+    child:Image.asset(
+      'assets/images/Kuryegiris.png',
+      width:double.infinity,
+      height:170,
+      fit:BoxFit.cover,
+      alignment:Alignment.center,
+    ),
+  );
   Widget _tabs()=>Row(children:[Expanded(child:_mode(false,'Giriş Yap')),Expanded(child:_mode(true,'Kayıt Ol'))]);
   Widget _mode(bool value,String label){final selected=register==value;return InkWell(onTap:busy?null:()=>setState((){register=value;message=null;}),child:Container(height:42,alignment:Alignment.center,decoration:BoxDecoration(border:Border(bottom:BorderSide(color:selected?orange:const Color(0xFFE7E7EA),width:selected?2.5:1))),child:Text(label,style:TextStyle(color:selected?orange:muted,fontWeight:FontWeight.w800,fontSize:16))));}
   Widget _field(TextEditingController c,String label,IconData icon,{TextInputType? keyboard})=>TextField(controller:c,keyboardType:keyboard,autocorrect:false,decoration:_input(label,icon));
