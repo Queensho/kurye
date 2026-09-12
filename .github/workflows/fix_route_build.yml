@@ -60,6 +60,10 @@ jobs:
           old = """                IconButton(\n                  onPressed: () {},\n                  icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 26),\n                ),\n"""
           new = """                IconButton(\n                  tooltip: 'Mesaj',\n                  onPressed: cancelled ? null : _openShipmentChat,\n                  icon: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 24),\n                ),\n"""
           s = s.replace(old, new, 1)
+          s = s.replace(
+              "final phone = (row['customer_phone'] ?? row['receiver_phone'])?.toString();",
+              "final phone = (row['recipient_phone'] ?? '').toString();",
+          )
           p.write_text(s)
           PY
       - name: Commit fixes
@@ -71,5 +75,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add lib/courier_assigned_jobs_page.dart lib/courier_active_job_page.dart lib/data/app_data_service.dart lib/customer_support_tickets_page.dart lib/customer_live_tracking_page.dart lib/courier_active_job_realtime_page.dart
-          git commit -m "Add courier package chat"
+          git commit -m "Fix courier customer phone lookup"
           git push
