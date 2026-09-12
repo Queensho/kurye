@@ -23,6 +23,8 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
   final data = AppDataService.instance;
   int selectedTab = 0;
   Map<String, dynamic> summary = {};
+  bool earningsHidden = false;
+  bool onlineBusy = false;
 
   @override
   void initState() {
@@ -36,6 +38,62 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
       if (!mounted) return;
       setState(() => summary = Map<String, dynamic>.from(result));
     } catch (_) {}
+  }
+
+  Future<void> _pickPeriod() async {
+    final result = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('Dönem seç', style: TextStyle(fontWeight: FontWeight.w900))),
+            ListTile(title: const Text('Günlük'), trailing: selectedTab == 0 ? const Icon(Icons.check_rounded, color: purple) : null, onTap: () => Navigator.pop(context, 0)),
+            ListTile(title: const Text('Haftalık'), trailing: selectedTab == 1 ? const Icon(Icons.check_rounded, color: purple) : null, onTap: () => Navigator.pop(context, 1)),
+            ListTile(title: const Text('Aylık'), trailing: selectedTab == 2 ? const Icon(Icons.check_rounded, color: purple) : null, onTap: () => Navigator.pop(context, 2)),
+          ],
+        ),
+      ),
+    );
+    if (result != null && mounted) setState(() => selectedTab = result);
+  }
+
+  Future<void> _goOnline() async {
+    if (onlineBusy) return;
+    setState(() => onlineBusy = true);
+    try {
+      await data.setCourierOnline(online: true, vehicleType: 'motorcycle');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Online oldun.')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Online olunamadı: $e')));
+    } finally {
+      if (mounted) setState(() => onlineBusy = false);
+    }
+  }
+
+  void _showEarningTips() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => const SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Daha fazla kazan', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+              SizedBox(height: 12),
+              Text('Yoğun saatlerde online kal, yakın işleri hızlı kabul et ve teslimatları zamanında tamamla.'),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   double n(String key) => (summary[key] as num?)?.toDouble() ?? 0;
@@ -286,13 +344,12 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
                             ),
                           ),
                           SizedBox(width: 7 * s),
-                          Icon(Icons.visibility_off_outlined,
-                              color: muted, size: 17 * s),
+                          InkWell(onTap: () => setState(() => earningsHidden = !earningsHidden), child: Icon(earningsHidden ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: muted, size: 17 * s)),
                         ],
                       ),
                       SizedBox(height: 7 * s),
                       Text(
-                        money(total),
+                        earningsHidden ? '••••' : money(total),
                         style: TextStyle(
                           color: navy,
                           fontSize: 34 * s,
@@ -477,7 +534,10 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
                 ),
               ),
             ),
-            Container(
+            InkWell(
+              borderRadius: BorderRadius.circular(22 * s),
+              onTap: _pickPeriod,
+              child: Container(
               padding: EdgeInsets.symmetric(
                 horizontal: 13 * s,
                 vertical: 8 * s,
@@ -506,6 +566,7 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
                       color: purple, size: 17 * s),
                 ],
               ),
+            ),
             ),
           ],
         ),
@@ -667,7 +728,10 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
         s,
       );
 
-  Widget _moreCard(double s) => Container(
+  Widget _moreCard(double s) => InkWell(
+        borderRadius: BorderRadius.circular(18 * s),
+        onTap: _showEarningTips,
+        child: Container(
         padding: EdgeInsets.symmetric(horizontal: 15 * s, vertical: 13 * s),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -715,6 +779,7 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
                 color: const Color(0xFF8A245E), size: 25 * s),
           ],
         ),
+      ),
       );
 
   Widget _onlineButton(double s) => Container(
@@ -725,40 +790,16 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
           child: SizedBox(
             height: 58 * s,
             width: double.infinity,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [purple2, purple]),
-                borderRadius: BorderRadius.circular(28 * s),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x285620D9),
-                    blurRadius: 18,
-                    offset: Offset(0, 7),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.bolt_rounded,
-                        color: Colors.white, size: 28 * s),
-                    SizedBox(width: 8 * s),
-                    Text(
-                      'Online Ol, Siparişleri Kaçırma',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16 * s,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            child: FilledButton.icon(
+              onPressed: onlineBusy ? null : _goOnline,
+              style: FilledButton.styleFrom(backgroundColor: purple, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28 * s))),
+              icon: onlineBusy ? SizedBox(width: 18 * s, height: 18 * s, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Icon(Icons.bolt_rounded, size: 28 * s),
+              label: Text(onlineBusy ? 'Online yapılıyor...' : 'Online Ol, Siparişleri Kaçırma', style: TextStyle(fontSize: 16 * s, fontWeight: FontWeight.w900)),
             ),
           ),
         ),
       );
+
 }
 
 class _RingPainter extends CustomPainter {
