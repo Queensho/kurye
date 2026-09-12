@@ -30,6 +30,7 @@ class _CourierHomePageState extends State<CourierHomePage> {
   Map<String, dynamic> earnings = {};
   List<Map<String, dynamic>> courierShipments = [];
   late final Stream<List<Map<String, dynamic>>> poolStream;
+  final Set<String> hiddenPoolShipmentIds = <String>{};
 
   @override
   void initState() {
@@ -152,8 +153,12 @@ class _CourierHomePageState extends State<CourierHomePage> {
       );
       return;
     }
+    final shipmentId = item['id'].toString();
+    if (mounted) {
+      setState(() => hiddenPoolShipmentIds.add(shipmentId));
+    }
     try {
-      final claimed = await data.claimShipment(item['id'].toString());
+      final claimed = await data.claimShipment(shipmentId);
       if (!mounted) return;
       await _loadDashboard();
       Navigator.of(context).push(
@@ -167,10 +172,12 @@ class _CourierHomePageState extends State<CourierHomePage> {
         ),
       );
     } catch (e) {
-      if (mounted)
+      if (mounted) {
+        setState(() => hiddenPoolShipmentIds.remove(shipmentId));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))),
         );
+      }
     }
   }
 
@@ -236,8 +243,16 @@ class _CourierHomePageState extends State<CourierHomePage> {
                   child: StreamBuilder<List<Map<String, dynamic>>>(
                     stream: poolStream,
                     builder: (context, snapshot) {
+                      final rawJobs =
+                          snapshot.data ?? const <Map<String, dynamic>>[];
                       final jobs = online
-                          ? (snapshot.data ?? const <Map<String, dynamic>>[])
+                          ? rawJobs
+                              .where(
+                                (job) => !hiddenPoolShipmentIds.contains(
+                                  (job['id'] ?? '').toString(),
+                                ),
+                              )
+                              .toList(growable: false)
                           : const <Map<String, dynamic>>[];
                       if (snapshot.connectionState == ConnectionState.waiting &&
                           online)
