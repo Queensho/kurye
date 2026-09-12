@@ -119,16 +119,13 @@ jobs:
           )
           s = s.replace("                        money(total),\n", "                        earningsHidden ? '••••' : money(total),\n", 1)
 
-          # Header period chip: make the existing chip tappable.
           header_old = """            Container(\n              padding: EdgeInsets.symmetric(\n                horizontal: 12 * s,\n                vertical: 9 * s,\n              ),\n              decoration: BoxDecoration(\n                color: Colors.white.withValues(alpha: .10),\n                borderRadius: BorderRadius.circular(22 * s),\n              ),\n              child: Row(\n"""
           header_new = """            InkWell(\n              borderRadius: BorderRadius.circular(22 * s),\n              onTap: _pickPeriod,\n              child: Container(\n                padding: EdgeInsets.symmetric(\n                  horizontal: 12 * s,\n                  vertical: 9 * s,\n                ),\n                decoration: BoxDecoration(\n                  color: Colors.white.withValues(alpha: .10),\n                  borderRadius: BorderRadius.circular(22 * s),\n                ),\n                child: Row(\n"""
           s = s.replace(header_old, header_new, 1)
-          # close the extra InkWell after the first header chip row/container.
           header_close = """                ],\n              ),\n            ),\n          ],\n        ),\n      );\n\n  Widget _tabs"""
           header_close_new = """                  ],\n                ),\n              ),\n            ),\n          ],\n        ),\n      );\n\n  Widget _tabs"""
           s = s.replace(header_close, header_close_new, 1)
 
-          # Hourly period selector.
           chip_old = """            Container(\n              padding: EdgeInsets.symmetric(\n                horizontal: 13 * s,\n                vertical: 8 * s,\n              ),\n              decoration: BoxDecoration(\n                color: Colors.white,\n                borderRadius: BorderRadius.circular(22 * s),\n                border: Border.all(color: const Color(0xFFE8E6EE)),\n              ),\n              child: Row(\n"""
           chip_new = """            InkWell(\n              borderRadius: BorderRadius.circular(22 * s),\n              onTap: _pickPeriod,\n              child: Container(\n                padding: EdgeInsets.symmetric(\n                  horizontal: 13 * s,\n                  vertical: 8 * s,\n                ),\n                decoration: BoxDecoration(\n                  color: Colors.white,\n                  borderRadius: BorderRadius.circular(22 * s),\n                  border: Border.all(color: const Color(0xFFE8E6EE)),\n                ),\n                child: Row(\n"""
           s = s.replace(chip_old, chip_new, 1)
@@ -136,7 +133,6 @@ jobs:
           chip_close_new = """                  ],\n                ),\n              ),\n            ),\n          ],\n        ),\n        SizedBox(height: 12 * s),"""
           s = s.replace(chip_close, chip_close_new, 1)
 
-          # Make the more-card clickable.
           s = s.replace(
               "  Widget _moreCard(double s) => Container(\n",
               "  Widget _moreCard(double s) => InkWell(\n        borderRadius: BorderRadius.circular(18 * s),\n        onTap: _showEarningTips,\n        child: Container(\n",
@@ -146,7 +142,6 @@ jobs:
           more_close_new = """          ],\n        ),\n      ),\n      );\n\n  Widget _onlineButton"""
           s = s.replace(more_close, more_close_new, 1)
 
-          # Replace bottom CTA with a real button.
           start = s.index("  Widget _onlineButton(double s) => Container(")
           end = s.index("\n}\n\nclass _RingPainter", start)
           online = r'''  Widget _onlineButton(double s) => Container(
@@ -189,3 +184,5 @@ jobs:
           git add lib/courier_earnings_detail_page.dart
           git commit -m "Activate earnings detail buttons"
           git push
+
+# trigger: 2026-09-12
