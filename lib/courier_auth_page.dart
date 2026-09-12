@@ -304,33 +304,11 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
 
   Widget _hero() => SizedBox(
         height: 360,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFFFFFCF9), Color(0xFFFFE8DA)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-              ),
-            ),
-            Positioned(right: -90, top: -35, child: Container(width: 300, height: 300, decoration: const BoxDecoration(color: orange, shape: BoxShape.circle))),
-            Positioned(right: -8, bottom: 0, child: Image.asset('assets/images/kurye_hd.png', width: 245, height: 285, fit: BoxFit.contain)),
-            Positioned(
-              left: 28,
-              top: 42,
-              right: 210,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-                Text('YBB', style: TextStyle(color: navy, fontSize: 40, fontWeight: FontWeight.w900, letterSpacing: -2)),
-                SizedBox(height: 8),
-                Text('Sen yolda,\nkazanç sana yakın.', style: TextStyle(color: navy, fontSize: 21, fontWeight: FontWeight.w800, height: 1.08)),
-                SizedBox(height: 26),
-                _Benefit(icon: Icons.bolt_rounded, text: 'Esnek\nçalışma'),
-                SizedBox(height: 12),
-                _Benefit(icon: Icons.account_balance_wallet_outlined, text: 'Daha fazla\nkazanç'),
-                SizedBox(height: 12),
-                _Benefit(icon: Icons.location_on_outlined, text: 'Kendi\nrotanı seç'),
-              ]),
-            ),
-          ],
+        width: double.infinity,
+        child: Image.asset(
+          'assets/images/Kuryegiris.png',
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
         ),
       );
 
@@ -367,17 +345,4 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE8E8ED))),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: orange, width: 1.4)),
       );
-}
-
-class _Benefit extends StatelessWidget {
-  const _Benefit({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Row(children: [
-        Container(width: 38, height: 38, decoration: BoxDecoration(color: const Color(0xFFFFF0E7), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: _CourierAuthPageState.orange, size: 22)),
-        const SizedBox(width: 10),
-        Text(text, style: const TextStyle(color: _CourierAuthPageState.navy, fontSize: 13, fontWeight: FontWeight.w700, height: 1.05)),
-      ]);
 }
