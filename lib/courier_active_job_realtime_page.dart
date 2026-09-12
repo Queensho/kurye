@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'data/app_data_service.dart';
-import 'shipment_chat_page.dart';
+import 'courier_shipment_chat_page.dart';
 
 class CourierActiveJobRealtimePage extends StatefulWidget {
   final String shipmentId;
@@ -95,9 +95,8 @@ class _CourierActiveJobRealtimePageState extends State<CourierActiveJobRealtimeP
   void _openShipmentChat() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ShipmentChatPage(
+        builder: (_) => CourierShipmentChatPage(
           shipmentId: widget.shipmentId,
-          title: 'Müşteri',
         ),
       ),
     );
