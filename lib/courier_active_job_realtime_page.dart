@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'data/app_data_service.dart';
+import 'shipment_chat_page.dart';
 
 class CourierActiveJobRealtimePage extends StatefulWidget {
   final String shipmentId;
@@ -89,6 +90,17 @@ class _CourierActiveJobRealtimePageState extends State<CourierActiveJobRealtimeP
       return;
     }
     await launchUrl(Uri(scheme: 'tel', path: phone.trim()));
+  }
+
+  void _openShipmentChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ShipmentChatPage(
+          shipmentId: widget.shipmentId,
+          title: 'Müşteri',
+        ),
+      ),
+    );
   }
 
   Future<bool> _confirm(String title, String action) async =>
@@ -257,8 +269,9 @@ class _CourierActiveJobRealtimePageState extends State<CourierActiveJobRealtimeP
                   ),
                 ),
                 IconButton(
-                  onPressed: () {},
-                  icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 26),
+                  tooltip: 'Mesaj',
+                  onPressed: cancelled ? null : _openShipmentChat,
+                  icon: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 24),
                 ),
               ],
             ),
