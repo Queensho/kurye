@@ -191,7 +191,7 @@ class _CourierActiveJobRealtimePageState extends State<CourierActiveJobRealtimeP
         final code = (row['public_code'] ?? 'Aktif İş').toString();
         final earningRaw = row['courier_earning'] ?? row['estimated_price'];
         final earning = earningRaw is num ? earningRaw.round() : widget.earning;
-        final phone = (row['customer_phone'] ?? row['receiver_phone'])?.toString();
+        final phone = (row['recipient_phone'] ?? '').toString();
         final distance = _distance(row['distance_km']);
         final duration = _duration(row['duration_min']);
         final cancelReason = (row['cancel_reason'] ?? '').toString();
