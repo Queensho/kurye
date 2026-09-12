@@ -1,0 +1,34 @@
+name: Fix Customer Email Auth
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix_customer_email_auth.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore app data service and wire customer email auth
+        run: |
+          git show ccb5b6204b7ae1e0594e60649a62a257ed698e18:lib/data/app_data_service.dart > lib/data/app_data_service.dart
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('lib/customer_phone_auth_page.dart')
+          s=p.read_text()
+          s=s.replace("await AppDataService.instance.signUpWithEmailPassword(email:email.text.trim(),password:password.text);", "final res = await AppDataService.instance.client.auth.signUp(email: email.text.trim(), password: password.text);\n        if (res.session == null) {\n          throw StateError('Hesabın oluşturuldu. E-postana gelen doğrulama bağlantısını onayladıktan sonra giriş yap.');\n        }\n        await AppDataService.instance.ensureProfile();\n        await AppDataService.instance.updateProfile(email: email.text.trim());\n        await AppDataService.instance.ensureAccountActive();")
+          s=s.replace("await AppDataService.instance.signInWithEmailPassword(email:email.text.trim(),password:password.text);", "await AppDataService.instance.client.auth.signInWithPassword(email: email.text.trim(), password: password.text);\n        await AppDataService.instance.ensureProfile();\n        await AppDataService.instance.ensureAccountActive();")
+          p.write_text(s)
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/data/app_data_service.dart lib/customer_phone_auth_page.dart
+          git diff --cached --quiet || git commit -m "Fix customer email login and restore data service"
+          git push
