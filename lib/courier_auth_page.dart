@@ -41,7 +41,7 @@ class _CourierAuthPageState extends State<CourierAuthPage> {
   Future<void> _forgotPassword() async {final mail=email.text.trim().toLowerCase();if(mail.isEmpty||!mail.contains('@')){setState(()=>message='Şifre sıfırlamak için önce e-posta adresini yaz.');return;}try{await data.client.auth.resetPasswordForEmail(mail);if(mounted)setState(()=>message='Şifre sıfırlama bağlantısı e-posta adresine gönderildi.');}catch(e){if(mounted)setState(()=>message=e.toString());}}
   String _authMessage(String raw){final t=raw.toLowerCase();if(t.contains('invalid login'))return 'E-posta veya şifre hatalı.';if(t.contains('email not confirmed'))return 'E-posta adresini doğruladıktan sonra giriş yapabilirsin.';if(t.contains('already registered'))return 'Bu e-posta ile zaten bir hesap var.';return raw;}
 
-  @override Widget build(BuildContext context)=>Scaffold(backgroundColor:bg,body:Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:440),child:SingleChildScrollView(padding:EdgeInsets.zero,child:Column(mainAxisSize:MainAxisSize.min,children:[
+  @override Widget build(BuildContext context)=>Scaffold(backgroundColor:bg,body:Align(alignment:Alignment.topCenter,child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:440),child:SingleChildScrollView(padding:EdgeInsets.zero,child:Column(mainAxisSize:MainAxisSize.min,children:[
     _hero(),
     Transform.translate(offset:const Offset(0,-8),child:Container(width:double.infinity,padding:const EdgeInsets.fromLTRB(22,10,22,18),decoration:const BoxDecoration(color:Colors.white,borderRadius:BorderRadius.vertical(top:Radius.circular(28))),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
       _tabs(),const SizedBox(height:12),
