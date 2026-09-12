@@ -362,7 +362,7 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
                       stale: stale,
                     ),
                     Transform.translate(
-                      offset: const Offset(0, -18),
+                      offset: const Offset(0, -12),
                       child: _detailsSheet(
                         shipment: shipment,
                         code: code,
@@ -390,7 +390,7 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
 
   Widget _orangeHeader(String status) {
     return Container(
-      height: 178,
+      height: 138,
       width: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(colors: [Color(0xFFFF5A1F), Color(0xFFFF7700)], begin: Alignment.topLeft, end: Alignment.bottomRight),
@@ -399,43 +399,43 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
         clipBehavior: Clip.none,
         children: [
           Positioned(
-            left: 22,
-            top: 46,
+            left: 18,
+            top: 30,
             child: InkWell(
               onTap: () => Navigator.maybePop(context),
               borderRadius: BorderRadius.circular(40),
               child: Container(
-                width: 54,
-                height: 54,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(color: Colors.white.withValues(alpha: .23), shape: BoxShape.circle),
-                child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 26),
+                child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 23),
               ),
             ),
           ),
           Positioned(
-            left: 92,
-            top: 42,
-            right: 210,
+            left: 78,
+            top: 29,
+            right: 142,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_statusTitle(status), style: const TextStyle(color: Colors.white, fontSize: 31, fontWeight: FontWeight.w900, height: 1.05)),
-              const SizedBox(height: 8),
-              Text(_statusSubtitle(status), style: TextStyle(color: Colors.white.withValues(alpha: .88), fontSize: 18, fontWeight: FontWeight.w500)),
+              Text(_statusTitle(status), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, height: 1.05)),
+              const SizedBox(height: 5),
+              Text(_statusSubtitle(status), style: TextStyle(color: Colors.white.withValues(alpha: .88), fontSize: 14, fontWeight: FontWeight.w500)),
             ]),
           ),
           Positioned(
-            right: 16,
+            right: 12,
             bottom: -2,
-            width: 185,
-            height: 164,
+            width: 148,
+            height: 128,
             child: Image.asset('assets/images/kurye_header_hd.png', fit: BoxFit.contain, alignment: Alignment.bottomCenter),
           ),
           Positioned(
-            right: 14,
-            top: 52,
+            right: 10,
+            top: 34,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-              child: const Text('Yola\nçıkıyorum! 🚀', textAlign: TextAlign.center, style: TextStyle(color: navy, fontSize: 13, height: 1.35, fontWeight: FontWeight.w900)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+              child: const Text('Yola\nçıkıyorum! 🚀', textAlign: TextAlign.center, style: TextStyle(color: navy, fontSize: 11.5, height: 1.25, fontWeight: FontWeight.w900)),
             ),
           ),
         ],
@@ -453,10 +453,10 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
     required bool stale,
   }) {
     return SizedBox(
-      height: 500,
+      height: 330,
       width: double.infinity,
       child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
         child: Stack(
           children: [
             Positioned.fill(
@@ -474,14 +474,14 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
                     if (courierPoint != null)
                       Marker(
                         point: courierPoint,
-                        width: 128,
-                        height: 128,
+                        width: 94,
+                        height: 94,
                         child: Container(
                           decoration: BoxDecoration(color: orange.withValues(alpha: .16), shape: BoxShape.circle),
-                          padding: const EdgeInsets.all(18),
+                          padding: const EdgeInsets.all(13),
                           child: Container(
                             decoration: BoxDecoration(color: orange.withValues(alpha: .12), shape: BoxShape.circle),
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(7),
                             child: ClipOval(child: Image.asset('assets/images/motosiklet_hd.png', fit: BoxFit.contain)),
                           ),
                         ),
@@ -494,24 +494,24 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
               Positioned(
                 left: 0,
                 right: 0,
-                top: 128,
+                top: 86,
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(color: orange, borderRadius: BorderRadius.circular(13), boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 12)]),
                     child: Text(_mapBadge(status), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
                   ),
                 ),
               ),
             Positioned(
-              right: 18,
-              top: 34,
+              right: 14,
+              top: 24,
               child: Column(
                 children: [
                   _mapButton(Icons.my_location_rounded, () => courierPoint == null ? null : mapController.move(courierPoint, 15.3)),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 9),
                   _mapButton(Icons.map_outlined, () {}),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 9),
                   _mapButton(Icons.navigation_rounded, () => courierPoint == null ? null : mapController.move(courierPoint, 16)),
                 ],
               ),
@@ -519,7 +519,7 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
             if (routeEtaMin != null && routeTarget != null)
               Positioned(
                 left: 18,
-                bottom: 24,
+                bottom: 18,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 14)]),
@@ -540,7 +540,7 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: SizedBox(width: 58, height: 58, child: Icon(icon, color: orange, size: 28)),
+        child: SizedBox(width: 48, height: 48, child: Icon(icon, color: orange, size: 24)),
       ),
     );
   }
@@ -562,38 +562,38 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
     final ratingText = ratingCount == 0 ? 'Yeni kurye' : '${rating.toStringAsFixed(1)} ($ratingCount teslimat)';
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(28, 16, 28, 34),
+      padding: const EdgeInsets.fromLTRB(22, 14, 22, 28),
       decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(child: Container(width: 54, height: 5, decoration: BoxDecoration(color: const Color(0xFFD7D8E0), borderRadius: BorderRadius.circular(99)))),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Row(
             children: [
               Stack(
                 clipBehavior: Clip.none,
                 children: [
                   CircleAvatar(
-                    radius: 37,
+                    radius: 32,
                     backgroundColor: const Color(0xFFFFE7D8),
                     backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-                    child: avatarUrl.isEmpty ? ClipOval(child: Image.asset('assets/images/Profil3d.png', width: 74, height: 74, fit: BoxFit.cover)) : null,
+                    child: avatarUrl.isEmpty ? ClipOval(child: Image.asset('assets/images/Profil3d.png', width: 64, height: 64, fit: BoxFit.cover)) : null,
                   ),
                   Positioned(right: -1, bottom: 2, child: Container(width: 17, height: 17, decoration: BoxDecoration(color: green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3)))),
                 ],
               ),
-              const SizedBox(width: 15),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(courierName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: navy, fontSize: 22, fontWeight: FontWeight.w900)),
+                  Text(courierName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: navy, fontSize: 19, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 3),
-                  Text('$vehicle${plate.isEmpty ? '' : ' • $plate'}', style: const TextStyle(color: muted, fontSize: 14.5, fontWeight: FontWeight.w500)),
+                  Text('$vehicle${plate.isEmpty ? '' : ' • $plate'}', style: const TextStyle(color: muted, fontSize: 13, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 5),
                   Row(children: [
                     const Icon(Icons.star_rounded, color: Color(0xFFFFA600), size: 20),
                     const SizedBox(width: 4),
-                    Text(ratingText, style: const TextStyle(color: navy, fontSize: 13.5, fontWeight: FontWeight.w700)),
+                    Text(ratingText, style: const TextStyle(color: navy, fontSize: 12.5, fontWeight: FontWeight.w700)),
                   ]),
                 ]),
               ),
@@ -602,7 +602,7 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
               _roundAction(Icons.phone_rounded, orange, Colors.white, phone.isEmpty ? null : () => _call(phone)),
             ],
           ),
-          const SizedBox(height: 25),
+          const SizedBox(height: 20),
           _infoRow(Icons.inventory_2_outlined, 'Gönderi', code, copyIcon: true),
           _infoRow(Icons.location_on_rounded, 'Alım', (shipment['pickup_address'] ?? '').toString()),
           _infoRow(Icons.flag_rounded, 'Teslimat', (shipment['dropoff_address'] ?? '').toString()),
@@ -615,17 +615,17 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
             child: Row(children: [
               Icon(stale ? Icons.wifi_off_rounded : Icons.access_time_rounded, color: stale ? orange : green),
               const SizedBox(width: 11),
-              Expanded(child: Text(stale ? 'Kurye bağlantısı zayıf. Son konum gösteriliyor.' : 'Kurye konumu gerçek zamanlı güncellenir.', style: TextStyle(color: stale ? orange : green, fontSize: 13.5, fontWeight: FontWeight.w700))),
+              Expanded(child: Text(stale ? 'Kurye bağlantısı zayıf. Son konum gösteriliyor.' : 'Kurye konumu gerçek zamanlı güncellenir.', style: TextStyle(color: stale ? orange : green, fontSize: 12.5, fontWeight: FontWeight.w700))),
             ]),
           ),
           const SizedBox(height: 16),
           InkWell(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(15),
             onTap: actionBusy ? null : _support,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-              decoration: BoxDecoration(color: softOrange, borderRadius: BorderRadius.circular(18)),
+              decoration: BoxDecoration(color: softOrange, borderRadius: BorderRadius.circular(15)),
               child: const Row(children: [
                 CircleAvatar(backgroundColor: orange, foregroundColor: Colors.white, radius: 20, child: Icon(Icons.chat_rounded, size: 21)),
                 SizedBox(width: 12),
@@ -642,12 +642,12 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
           if (!delivered && !cancelled)
             SizedBox(
               width: double.infinity,
-              height: 62,
+              height: 56,
               child: FilledButton.icon(
                 onPressed: () => _chat(courierName),
-                style: FilledButton.styleFrom(backgroundColor: orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(31))),
-                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 26),
-                label: const Text('Kuryeye Mesaj Gönder', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                style: FilledButton.styleFrom(backgroundColor: orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28))),
+                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 23),
+                label: const Text('Kuryeye Mesaj Gönder', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
               ),
             ),
           if (delivered)
