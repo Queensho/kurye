@@ -42,12 +42,17 @@ class _CourierShipmentChatPageState extends State<CourierShipmentChatPage> {
 
   Future<void> _initialize() async {
     try {
-      final results = await Future.wait([
-        data.client.rpc('ensure_shipment_conversation', params: {'p_shipment_id': widget.shipmentId}),
-        data.client.from('shipments').select().eq('id', widget.shipmentId).single(),
-      ]);
-      final conversation = Map<String, dynamic>.from(results[0] as Map);
-      shipment = Map<String, dynamic>.from(results[1] as Map);
+      final conversationRaw = await data.client.rpc(
+        'ensure_shipment_conversation',
+        params: {'p_shipment_id': widget.shipmentId},
+      );
+      final shipmentRaw = await data.client
+          .from('shipments')
+          .select()
+          .eq('id', widget.shipmentId)
+          .single();
+      final conversation = Map<String, dynamic>.from(conversationRaw as Map);
+      shipment = Map<String, dynamic>.from(shipmentRaw);
       final id = conversation['id']?.toString();
       if (id == null || id.isEmpty) throw StateError('Mesajlaşma oluşturulamadı.');
 
