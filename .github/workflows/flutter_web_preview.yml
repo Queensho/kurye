@@ -62,3 +62,5 @@ jobs:
           publish_dir: ./build/web
           publish_branch: gh-pages
           force_orphan: true
+
+# Chat build fix deploy trigger 2026-09-12
