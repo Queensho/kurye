@@ -1,0 +1,73 @@
+name: Fix Pool Immediate Remove
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch optimistic pool removal
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('lib/courier_home_page.dart')
+          text = path.read_text()
+          original = text
+
+          marker = "  late final Stream<List<Map<String, dynamic>>> poolStream;\n"
+          if "hiddenPoolShipmentIds" not in text:
+              text = text.replace(
+                  marker,
+                  marker + "  final Set<String> hiddenPoolShipmentIds = <String>{};\n",
+                  1,
+              )
+
+          old = """    try {\n      final claimed = await data.claimShipment(item['id'].toString());\n      if (!mounted) return;\n      await _loadDashboard();\n"""
+          new = """    final shipmentId = item['id'].toString();\n    if (mounted) {\n      setState(() => hiddenPoolShipmentIds.add(shipmentId));\n    }\n    try {\n      final claimed = await data.claimShipment(shipmentId);\n      if (!mounted) return;\n      await _loadDashboard();\n"""
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          old_catch = """    } catch (e) {\n      if (mounted)\n        ScaffoldMessenger.of(context).showSnackBar(\n"""
+          new_catch = """    } catch (e) {\n      if (mounted) {\n        setState(() => hiddenPoolShipmentIds.remove(shipmentId));\n        ScaffoldMessenger.of(context).showSnackBar(\n"""
+          if old_catch in text:
+              text = text.replace(old_catch, new_catch, 1)
+              text = text.replace(
+                  """          SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))),\n        );\n    }\n  }\n\n  void _openAssigned()""",
+                  """          SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))),\n        );\n      }\n    }\n  }\n\n  void _openAssigned()""",
+                  1,
+              )
+
+          old_jobs = """                      final jobs = online\n                          ? (snapshot.data ?? const <Map<String, dynamic>>[])\n                          : const <Map<String, dynamic>>[];\n"""
+          new_jobs = """                      final rawJobs =\n                          snapshot.data ?? const <Map<String, dynamic>>[];\n                      final jobs = online\n                          ? rawJobs\n                              .where(\n                                (job) => !hiddenPoolShipmentIds.contains(\n                                  (job['id'] ?? '').toString(),\n                                ),\n                              )\n                              .toList(growable: false)\n                          : const <Map<String, dynamic>>[];\n"""
+          if old_jobs in text:
+              text = text.replace(old_jobs, new_jobs, 1)
+
+          if text == original:
+              print('No changes needed')
+          else:
+              path.write_text(text)
+              print('Patched courier_home_page.dart')
+
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/courier_home_page.dart
+          git commit -m "Remove claimed shipment from pool immediately"
+          git push
