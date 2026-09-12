@@ -669,7 +669,7 @@ class _CourierEarningsDetailPageState extends State<CourierEarningsDetailPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              money(total),
+                              earningsHidden ? '••••' : money(total),
                               style: TextStyle(
                                 color: navy,
                                 fontSize: 19 * s,
