@@ -606,7 +606,7 @@ class _CustomerLiveTrackingPageState extends State<CustomerLiveTrackingPage> {
           _infoRow(Icons.inventory_2_outlined, 'Gönderi', code, copyIcon: true),
           _infoRow(Icons.location_on_rounded, 'Alım', (shipment['pickup_address'] ?? '').toString()),
           _infoRow(Icons.flag_rounded, 'Teslimat', (shipment['dropoff_address'] ?? '').toString()),
-          _infoRow(Icons.stacked_coins_rounded, 'Ücret', _money(shipment['estimated_price'])),
+          _infoRow(Icons.payments_rounded, 'Ücret', _money(shipment['estimated_price'])),
           const SizedBox(height: 15),
           Container(
             width: double.infinity,
